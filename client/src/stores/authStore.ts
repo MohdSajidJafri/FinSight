@@ -1,4 +1,4 @@
-import create from 'zustand';
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import axios from 'axios';
 
@@ -42,16 +42,17 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true, error: null });
 
-          const res = await axios.post(`${API_URL}/auth/login`, {
+          const response = await axios.post(`${API_URL}/auth/login`, {
             email,
             password
           }, {
             withCredentials: true
           });
 
-          if (res.data.success) {
+          if (response.data.success) {
             set({
-              token: res.data.token,
+              token: response.data.token,
+              user: response.data.user,
               isAuthenticated: true,
               isLoading: false
             });
@@ -59,14 +60,15 @@ export const useAuthStore = create<AuthState>()(
             // Load user data immediately after login
             await get().loadUser();
           }
-        } catch (err: any) {
+        } catch (error: any) {
           set({
             token: null,
             user: null,
             isAuthenticated: false,
             isLoading: false,
-            error: err.response?.data?.message || 'Login failed'
+            error: error.response?.data?.message || 'Login failed'
           });
+          throw error;
         }
       },
 
@@ -178,7 +180,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({ token: state.token })
+      getStorage: () => localStorage,
     }
   )
 ); 
