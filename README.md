@@ -56,7 +56,7 @@ FinSight AI is an advanced personal finance management application that helps us
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/finsight-ai.git
+git clone https://github.com/MohdSajidJafri/FinSight.git
 cd finsight-ai
 ```
 
