@@ -28,7 +28,7 @@ interface AuthState {
 // API URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Configure axios defaults
+// Configure axios defaults for all requests
 axios.defaults.withCredentials = true;
 
 export const useAuthStore = create<AuthState>()(
@@ -44,33 +44,34 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         try {
           set({ isLoading: true, error: null });
-
-          console.log('Attempting login to:', `${API_URL}/auth/login`);
-          const response = await axios.post(`${API_URL}/auth/login`, {
-            email,
-            password
-          }, {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json'
+          
+          console.log(`Attempting login to: ${API_URL}/auth/login`);
+          
+          const response = await axios.post(
+            `${API_URL}/auth/login`, 
+            { email, password },
+            { 
+              headers: { 'Content-Type': 'application/json' },
+              withCredentials: true 
             }
-          });
-
+          );
+          
           console.log('Login response:', response.data);
-
-          if (response.data.success) {
+          
+          if (response.data.success && response.data.token) {
+            // Store token in localStorage
+            localStorage.setItem('auth-token', response.data.token);
+            
             set({
               token: response.data.token,
-              user: response.data.user,
               isAuthenticated: true,
               isLoading: false
             });
-
-            // Store token in localStorage
-            localStorage.setItem('token', response.data.token);
-
-            // Load user data immediately after login
+            
+            // Load user data
             await get().loadUser();
+          } else {
+            throw new Error('Invalid response from server');
           }
         } catch (error: any) {
           console.error('Login error:', error.response?.data || error.message);
@@ -79,7 +80,7 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             isAuthenticated: false,
             isLoading: false,
-            error: error.response?.data?.message || 'Login failed'
+            error: error.response?.data?.message || 'Login failed. Please check your credentials.'
           });
           throw error;
         }
@@ -89,56 +90,55 @@ export const useAuthStore = create<AuthState>()(
       register: async (name, email, password) => {
         try {
           set({ isLoading: true, error: null });
-
-          console.log('Attempting registration to:', `${API_URL}/auth/register`);
-          const res = await axios.post(`${API_URL}/auth/register`, {
-            name,
-            email,
-            password
-          }, {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json'
+          
+          console.log(`Attempting registration to: ${API_URL}/auth/register`);
+          
+          const response = await axios.post(
+            `${API_URL}/auth/register`, 
+            { name, email, password },
+            { 
+              headers: { 'Content-Type': 'application/json' },
+              withCredentials: true 
             }
-          });
-
-          console.log('Registration response:', res.data);
-
-          if (res.data.success && res.data.token) {
+          );
+          
+          console.log('Registration response:', response.data);
+          
+          if (response.data.success && response.data.token) {
             // Store token in localStorage
-            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('auth-token', response.data.token);
             
             set({
-              token: res.data.token,
+              token: response.data.token,
               isAuthenticated: true,
               isLoading: false
             });
-
+            
             // Load user data
             await get().loadUser();
+          } else {
+            throw new Error('Registration failed');
           }
         } catch (err: any) {
           console.error('Registration error:', err.response?.data || err.message);
           set({
             isLoading: false,
-            error: err.response?.data?.message || 'Registration failed'
+            error: err.response?.data?.message || 'Registration failed. Please try again.'
           });
+          throw err;
         }
       },
 
       // Logout user
-      logout: async () => {
-        try {
-          await axios.get(`${API_URL}/auth/logout`, {
-            withCredentials: true
-          });
-        } catch (err) {
-          console.error('Logout error:', err);
-        }
-        
+      logout: () => {
         // Remove token from localStorage
-        localStorage.removeItem('token');
+        localStorage.removeItem('auth-token');
         
+        // Try to call logout endpoint (but don't wait for it)
+        axios.get(`${API_URL}/auth/logout`, { withCredentials: true })
+          .catch(err => console.error('Logout error:', err));
+        
+        // Reset state
         set({
           token: null,
           user: null,
@@ -150,71 +150,88 @@ export const useAuthStore = create<AuthState>()(
 
       // Load user data
       loadUser: async () => {
+        const token = localStorage.getItem('auth-token');
+        
+        if (!token) {
+          set({
+            token: null,
+            user: null,
+            isAuthenticated: false,
+            isLoading: false
+          });
+          return;
+        }
+        
         try {
           set({ isLoading: true });
-
-          // Get token from localStorage
-          const token = localStorage.getItem('token');
           
-          if (!token) {
-            throw new Error('No token found');
-          }
-
-          const res = await axios.get(`${API_URL}/auth/me`, {
-            withCredentials: true,
+          const response = await axios.get(`${API_URL}/auth/me`, {
             headers: {
-              Authorization: `Bearer ${token}`
-            }
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            withCredentials: true
           });
-
-          if (res.data.success) {
+          
+          if (response.data.success && response.data.data) {
             set({
-              user: res.data.data,
+              user: response.data.data,
               isAuthenticated: true,
               isLoading: false,
               error: null
             });
+          } else {
+            throw new Error('Failed to load user data');
           }
-        } catch (err) {
-          console.error('Load user error:', err);
+        } catch (err: any) {
+          console.error('Load user error:', err.response?.data || err.message);
+          
           // Remove token from localStorage
-          localStorage.removeItem('token');
+          localStorage.removeItem('auth-token');
           
           set({
             token: null,
             user: null,
             isAuthenticated: false,
             isLoading: false,
-            error: 'Authentication failed'
+            error: 'Authentication failed. Please login again.'
           });
-          throw err; // Propagate the error
         }
       },
 
       // Update user data
       updateUser: async (userData) => {
+        const token = localStorage.getItem('auth-token');
+        
+        if (!token) {
+          set({ error: 'Authentication required' });
+          return;
+        }
+        
         try {
           set({ isLoading: true, error: null });
-
-          const token = localStorage.getItem('token');
           
-          const res = await axios.put(`${API_URL}/users/me`, userData, {
-            withCredentials: true,
+          const response = await axios.put(`${API_URL}/users/me`, userData, {
             headers: {
-              Authorization: `Bearer ${token}`
-            }
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            withCredentials: true
           });
-
-          if (res.data.success) {
+          
+          if (response.data.success && response.data.data) {
             set({
-              user: { ...get().user, ...res.data.data } as User,
+              user: { ...get().user, ...response.data.data } as User,
               isLoading: false
             });
+          } else {
+            throw new Error('Failed to update user data');
           }
         } catch (err: any) {
+          console.error('Update user error:', err.response?.data || err.message);
           set({
             isLoading: false,
-            error: err.response?.data?.message || 'Update failed'
+            error: err.response?.data?.message || 'Update failed. Please try again.'
           });
         }
       },
@@ -227,6 +244,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       getStorage: () => localStorage,
+      partialize: (state) => ({ token: state.token }),
     }
   )
 ); 
