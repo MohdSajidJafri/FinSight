@@ -49,7 +49,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
+      const token = localStorage.getItem('auth-token');
       const res = await axios.post(`${API_URL}/transactions`, transaction, {
+        headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
 
@@ -73,7 +75,9 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
+      const token = localStorage.getItem('auth-token');
       const res = await axios.get(`${API_URL}/transactions`, {
+        headers: { Authorization: `Bearer ${token}` },
         withCredentials: true
       });
 
