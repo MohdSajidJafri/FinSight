@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://finsight-2.onrender.com/api/:path*"
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
@@ -22,7 +22,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://fin-sight-ten.vercel.app"
+          "value": "https://fin-sight-kappa.vercel.app"
         },
         {
           "key": "Access-Control-Allow-Methods",
