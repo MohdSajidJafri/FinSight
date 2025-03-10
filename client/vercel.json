@@ -8,6 +8,38 @@
       "destination": "https://finsight-backend-ab4y.onrender.com/api/:path*"
     },
     {
+      "source": "/budgets",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/budgets"
+    },
+    {
+      "source": "/budgets/:path*",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/budgets/:path*"
+    },
+    {
+      "source": "/transactions",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/transactions"
+    },
+    {
+      "source": "/transactions/:path*",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/transactions/:path*"
+    },
+    {
+      "source": "/predictions",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/predictions"
+    },
+    {
+      "source": "/predictions/:path*",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/predictions/:path*"
+    },
+    {
+      "source": "/categories",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/categories"
+    },
+    {
+      "source": "/categories/:path*",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/categories/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
