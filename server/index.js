@@ -50,6 +50,9 @@ app.use('/api/predictions', predictionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/categories', categoryRoutes);
 
+// Also mount auth routes directly at /auth for compatibility with frontend
+app.use('/auth', authRoutes);
+
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/build')));
