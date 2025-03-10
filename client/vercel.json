@@ -4,40 +4,8 @@
   "framework": "create-react-app",
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "https://finsight-backend-ab4y.onrender.com/:path*"
-    },
-    {
-      "source": "/budgets",
-      "destination": "https://finsight-backend-ab4y.onrender.com/budgets"
-    },
-    {
-      "source": "/budgets/:path*",
-      "destination": "https://finsight-backend-ab4y.onrender.com/budgets/:path*"
-    },
-    {
-      "source": "/transactions",
-      "destination": "https://finsight-backend-ab4y.onrender.com/transactions"
-    },
-    {
-      "source": "/transactions/:path*",
-      "destination": "https://finsight-backend-ab4y.onrender.com/transactions/:path*"
-    },
-    {
-      "source": "/predictions",
-      "destination": "https://finsight-backend-ab4y.onrender.com/predictions"
-    },
-    {
-      "source": "/predictions/:path*",
-      "destination": "https://finsight-backend-ab4y.onrender.com/predictions/:path*"
-    },
-    {
-      "source": "/categories",
-      "destination": "https://finsight-backend-ab4y.onrender.com/categories"
-    },
-    {
-      "source": "/categories/:path*",
-      "destination": "https://finsight-backend-ab4y.onrender.com/categories/:path*"
+      "source": "/api/:path*",
+      "destination": "https://finsight-backend-ab4y.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
