@@ -25,8 +25,9 @@ interface AuthState {
   clearError: () => void;
 }
 
-// API URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// API URL - remove /api suffix as it's handled by the backend routes
+const BASE_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_URL = `${BASE_URL}/api`;
 
 // Configure axios defaults for all requests
 axios.defaults.withCredentials = true;
