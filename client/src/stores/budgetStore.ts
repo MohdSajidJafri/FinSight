@@ -32,10 +32,12 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   getBudgets: async () => {
     try {
       set({ isLoading: true, error: null });
+      const token = localStorage.getItem('auth-token');
       const response = await fetch(`${API_URL}/budgets`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include'
       });
@@ -55,10 +57,12 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   addBudget: async (budget) => {
     try {
       set({ isLoading: true, error: null });
+      const token = localStorage.getItem('auth-token');
       const response = await fetch(`${API_URL}/budgets`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify({ ...budget, isActive: true })
@@ -82,10 +86,12 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   updateBudget: async (id, budget) => {
     try {
       set({ isLoading: true, error: null });
+      const token = localStorage.getItem('auth-token');
       const response = await fetch(`${API_URL}/budgets/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include',
         body: JSON.stringify(budget)
@@ -111,10 +117,12 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   deleteBudget: async (id) => {
     try {
       set({ isLoading: true, error: null });
+      const token = localStorage.getItem('auth-token');
       const response = await fetch(`${API_URL}/budgets/${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         credentials: 'include'
       });
