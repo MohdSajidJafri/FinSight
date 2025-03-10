@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://finsight-2.onrender.com"
+      "destination": "https://finsight-2.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
