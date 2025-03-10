@@ -50,8 +50,10 @@ app.use('/api/predictions', predictionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/categories', categoryRoutes);
 
-// Also mount auth routes directly at /auth for compatibility with frontend
-app.use('/auth', authRoutes);
+// Also mount routes directly for compatibility with frontend
+app.use('/transactions', transactionRoutes);
+app.use('/budgets', budgetRoutes);
+app.use('/categories', categoryRoutes);
 
 // Serve static assets in production - DISABLED for separate frontend deployment
 // if (process.env.NODE_ENV === 'production') {
