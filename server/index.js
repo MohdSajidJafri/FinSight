@@ -53,14 +53,23 @@ app.use('/api/categories', categoryRoutes);
 // Also mount auth routes directly at /auth for compatibility with frontend
 app.use('/auth', authRoutes);
 
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
+// Serve static assets in production - DISABLED for separate frontend deployment
+// if (process.env.NODE_ENV === 'production') {
+//   app.use(express.static(path.join(__dirname, '../client/build')));
   
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+//   app.get('*', (req, res) => {
+//     res.sendFile(path.resolve(__dirname, '../client/build', 'index.html'));
+//   });
+// }
+
+// API-only mode for separate frontend deployment
+app.get('/api-status', (req, res) => {
+  res.json({ 
+    status: 'online',
+    message: 'FinSight API is running in API-only mode',
+    environment: process.env.NODE_ENV
   });
-}
+});
 
 // 404 handler
 app.use((req, res) => {
