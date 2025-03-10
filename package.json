@@ -1,0 +1,17 @@
+{
+  "name": "finsight-project",
+  "version": "1.0.0",
+  "description": "FinSight AI - Intelligent Personal Finance Dashboard",
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm install",
+    "build": "npm run build:server && npm run build:client",
+    "start": "cd server && npm start"
+  },
+  "dependencies": {
+    "concurrently": "^8.0.1"
+  }
+} 

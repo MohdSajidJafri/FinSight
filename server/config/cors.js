@@ -1,6 +1,7 @@
 const corsOptions = {
-  origin: [
-    'https://fin-sight-ten.vercel.app/login',
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : [
+    'https://fin-sight-ten.vercel.app',
+    'https://your-new-vercel-app-url.vercel.app',
     'http://localhost:3000'
   ],
   credentials: true,
