@@ -371,7 +371,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-4">
-          * Predictions are based on your transaction history from the past two months
+          * Predictions use your profile monthly income and current month's expenses and trend.
         </p>
       </div>
 

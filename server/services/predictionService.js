@@ -62,7 +62,7 @@ exports.generateExpensePredictions = async (userId, period = 'monthly', options 
         }
       }
 
-      if (categoryTransactions.length < 3) {
+      if (categoryTransactions.length < 1) {
         continue;
       }
       const prediction = linearRegressionPredict(categoryTransactions, period);
@@ -295,8 +295,10 @@ function getHistoricalStartDate(period) {
     case 'yearly':
       return new Date(now.setFullYear(now.getFullYear() - 3)); // 3 years of yearly data
     case 'monthly':
+      // Use only the current month as requested
+      return new Date(now.getFullYear(), now.getMonth(), 1);
     default:
-      return new Date(now.setFullYear(now.getFullYear() - 1)); // 1 year of monthly data
+      return new Date(now.setFullYear(now.getFullYear() - 1));
   }
 }
 
