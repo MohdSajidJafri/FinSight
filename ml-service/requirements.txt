@@ -1,0 +1,8 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+pandas==2.2.2
+prophet==1.1.5
+pydantic==2.7.1
+numpy==1.26.4
+scipy==1.11.4
+pystan==3.7.0

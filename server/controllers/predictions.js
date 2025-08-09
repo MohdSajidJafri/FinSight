@@ -9,12 +9,13 @@ const User = require('../models/User');
 // @access  Private
 exports.generateExpensePredictions = async (req, res) => {
   try {
-    const { period } = req.body;
+    const { period, model } = req.body;
     
     // Generate predictions
     const predictions = await predictionService.generateExpensePredictions(
       req.user.id,
-      period || 'monthly'
+      period || 'monthly',
+      { model }
     );
     
     res.status(200).json({
@@ -36,12 +37,13 @@ exports.generateExpensePredictions = async (req, res) => {
 // @access  Private
 exports.generateSavingsPrediction = async (req, res) => {
   try {
-    const { period } = req.body;
+    const { period, model } = req.body;
     
     // Generate prediction
     const prediction = await predictionService.generateSavingsPrediction(
       req.user.id,
-      period || 'monthly'
+      period || 'monthly',
+      { model }
     );
     
     res.status(200).json({

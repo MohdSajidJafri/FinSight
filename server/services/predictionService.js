@@ -8,7 +8,7 @@ const Category = require('../models/Category');
  * @param {string} period - The prediction period (daily, weekly, monthly, yearly)
  * @returns {Promise<Array>} - Array of predictions
  */
-exports.generateExpensePredictions = async (userId, period = 'monthly') => {
+exports.generateExpensePredictions = async (userId, period = 'monthly', options = {}) => {
   try {
     // Get user's expense categories
     const categories = await Category.find({ user: userId, type: 'expense' });
@@ -37,15 +37,35 @@ exports.generateExpensePredictions = async (userId, period = 'monthly') => {
     for (const category of categories) {
       const categoryTransactions = transactionsByCategory[category._id] || [];
       
-      if (categoryTransactions.length < 3) {
-        // Not enough data for reliable prediction
-        continue;
+      if (options.model === 'prophet') {
+        try {
+          const mlPred = await callMlService(categoryTransactions, period, 1);
+          if (!mlPred || mlPred.length === 0) continue;
+          const amount = mlPred[0].yhat;
+          const confidence = 0.7; // Use interval later if needed
+          predictions.push({
+            user: userId,
+            category: category._id,
+            type: 'expense',
+            period,
+            predictedAmount: Math.max(0, amount),
+            confidence,
+            startDate: predictionStartDate,
+            endDate: predictionEndDate,
+            factors: [ { name: 'prophet', weight: 1 } ],
+            model: 'prophet',
+            createdAt: now
+          });
+          continue;
+        } catch (e) {
+          // Fallback to heuristic below
+        }
       }
 
-      // Simple linear regression for prediction
+      if (categoryTransactions.length < 3) {
+        continue;
+      }
       const prediction = linearRegressionPredict(categoryTransactions, period);
-      
-      // Calculate confidence based on data variance and sample size
       const confidence = calculateConfidence(categoryTransactions);
 
       // Create prediction object
@@ -95,7 +115,7 @@ exports.generateExpensePredictions = async (userId, period = 'monthly') => {
  * @param {string} period - The prediction period (monthly, yearly)
  * @returns {Promise<Object>} - Savings prediction
  */
-exports.generateSavingsPrediction = async (userId, period = 'monthly') => {
+exports.generateSavingsPrediction = async (userId, period = 'monthly', options = {}) => {
   try {
     // Get historical income and expense data
     const startDate = getHistoricalStartDate(period);
@@ -177,8 +197,18 @@ exports.generateSavingsPrediction = async (userId, period = 'monthly') => {
       });
     });
 
-    // Predict future savings
-    const predictedSavings = predictSavings(savingsData, period);
+    let predictedSavings;
+    if (options.model === 'prophet') {
+      try {
+        const series = savingsData.map((d) => ({ date: new Date(d.period + '-01'), value: d.savings }));
+        const mlPred = await callMlService(series, period, 1);
+        predictedSavings = { amount: mlPred && mlPred[0] ? mlPred[0].yhat : 0, confidence: 0.7 };
+      } catch (e) {
+        predictedSavings = predictSavings(savingsData, period);
+      }
+    } else {
+      predictedSavings = predictSavings(savingsData, period);
+    }
     const now = new Date();
     const predictionStartDate = new Date();
     const predictionEndDate = getPredictionEndDate(predictionStartDate, period);
@@ -268,6 +298,28 @@ function getHistoricalStartDate(period) {
     default:
       return new Date(now.setFullYear(now.getFullYear() - 1)); // 1 year of monthly data
   }
+}
+
+// Call external ML service (Prophet) to forecast
+async function callMlService(transactionsOrSeries, period, horizon) {
+  const fetch = require('node-fetch');
+  const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+
+  // Normalize input to series of {date, value}
+  const series = transactionsOrSeries.map((t) => ({
+    date: t.date ? t.date : t.date || t.ds || t,
+    value: t.amount != null ? t.amount : t.value
+  }));
+
+  const res = await fetch(`${ML_URL}/forecast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ series, period, horizon })
+  });
+  if (!res.ok) {
+    throw new Error(`ML service error: ${res.status}`);
+  }
+  return await res.json();
 }
 
 /**
