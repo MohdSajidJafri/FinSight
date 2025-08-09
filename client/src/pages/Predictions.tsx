@@ -75,12 +75,27 @@ const Predictions: React.FC = () => {
 
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const [predRes, recsRes] = await Promise.all([
+      let [predRes, recsRes] = await Promise.all([
         api.get('/predictions', { params: { type: predType, period }, headers, withCredentials: true }),
         api.get('/predictions/recommendations', { headers, withCredentials: true })
       ]);
 
-      setPredictions(predRes.data?.data || []);
+      let preds: PredictionItem[] = predRes.data?.data || [];
+      // Auto-generate if none exist for the selected type/period
+      if ((!preds || preds.length === 0)) {
+        try {
+          if (predType === 'expense') {
+            await api.post('/predictions/expenses', { period });
+          } else if (predType === 'savings') {
+            await api.post('/predictions/savings', { period });
+          }
+          const retry = await api.get('/predictions', { params: { type: predType, period }, headers, withCredentials: true });
+          preds = retry.data?.data || [];
+        } catch (_) {
+          // keep empty; error surfaced below if needed
+        }
+      }
+      setPredictions(preds);
       // Override monthlyIncome in recommendations with user profile monthlyIncome
       const profileIncome = user?.monthlyIncome || 0;
       const recommendations = recsRes.data?.data || null;
