@@ -54,16 +54,13 @@ const Dashboard: React.FC = () => {
   }, [getTransactions]);
 
   useEffect(() => {
-    if (transactions.length > 0) {
+    if (transactions.length >= 0) {
       // Calculate statistics
       const newStats = transactions.reduce((acc, transaction) => {
         const amount = transaction.amount;
-        if (transaction.type === 'income') {
-          acc.totalIncome += amount;
-          acc.totalBalance += amount;
-        } else {
+        // Only track expenses; income is sourced from user profile (monthlyIncome)
+        if (transaction.type === 'expense') {
           acc.totalExpenses += amount;
-          acc.totalBalance -= amount;
           // Add to category totals
           if (transaction.category && transaction.category._id) {
             const categoryId = transaction.category._id;
@@ -90,6 +87,11 @@ const Dashboard: React.FC = () => {
         }
       });
 
+      // Use monthly income from user profile as the income baseline
+      const monthlyIncome = user?.monthlyIncome || 0;
+      newStats.totalIncome = monthlyIncome;
+      newStats.totalBalance = monthlyIncome - newStats.totalExpenses;
+
       // Calculate predictions
       const now = new Date();
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -104,16 +106,12 @@ const Dashboard: React.FC = () => {
         return transactionDate >= twoMonthsAgo && transactionDate < lastMonth;
       });
 
-      const lastMonthIncome = lastMonthTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const lastMonthIncome = monthlyIncome;
       const lastMonthExpenses = lastMonthTransactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const twoMonthsAgoIncome = twoMonthsAgoTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const twoMonthsAgoIncome = monthlyIncome;
       const twoMonthsAgoExpenses = twoMonthsAgoTransactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
@@ -141,14 +139,14 @@ const Dashboard: React.FC = () => {
       }
 
       // Calculate predictions with safeguards
-      const baseIncome = lastMonthIncome || twoMonthsAgoIncome || 0;
+      const baseIncome = monthlyIncome;
       const baseExpenses = lastMonthExpenses || twoMonthsAgoExpenses || 0;
       
       // Adjust trend factor based on data availability
       const trendFactor = trend === 'up' ? 1.1 : trend === 'down' ? 0.9 : 1;
       
       newStats.predictions = {
-        estimatedIncome: Math.max(baseIncome * trendFactor, 0),
+        estimatedIncome: Math.max(baseIncome, 0),
         estimatedExpenses: Math.max(baseExpenses * trendFactor, 0),
         trend,
         percentageChange: Math.abs(expenseChange)

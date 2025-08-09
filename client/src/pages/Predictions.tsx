@@ -81,7 +81,14 @@ const Predictions: React.FC = () => {
       ]);
 
       setPredictions(predRes.data?.data || []);
-      setRecs(recsRes.data?.data || null);
+      // Override monthlyIncome in recommendations with user profile monthlyIncome
+      const profileIncome = user?.monthlyIncome || 0;
+      const recommendations = recsRes.data?.data || null;
+      if (recommendations) {
+        setRecs({ ...recommendations, monthlyIncome: profileIncome });
+      } else {
+        setRecs(null);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load predictions');
     } finally {
