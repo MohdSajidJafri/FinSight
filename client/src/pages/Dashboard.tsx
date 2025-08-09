@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement } from 'chart.js';
 import { useTransactionStore } from '../stores/transactionStore';
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
+import { formatCurrency } from '../lib/currency';
 
 ChartJS.register(
   ArcElement,
@@ -28,6 +30,8 @@ interface TransactionStats {
 
 const Dashboard: React.FC = () => {
   const { transactions, getTransactions, isLoading } = useTransactionStore();
+  const { user } = useAuthStore();
+  const currency = user?.currency || 'USD';
   const [stats, setStats] = useState<TransactionStats>({
     totalBalance: 0,
     totalIncome: 0,
@@ -211,10 +215,7 @@ const Dashboard: React.FC = () => {
                         label += ': ';
                       }
                       if (context.parsed.y !== null) {
-                        label += new Intl.NumberFormat('en-US', {
-                          style: 'currency',
-                          currency: 'USD'
-                        }).format(context.parsed.y);
+                        label += formatCurrency(Number(context.parsed.y), currency);
                       }
                       return label;
                     }
@@ -227,11 +228,7 @@ const Dashboard: React.FC = () => {
                   ticks: {
                     callback: (value) => {
                       if (typeof value === 'number') {
-                        return new Intl.NumberFormat('en-US', {
-                          style: 'currency',
-                          currency: 'USD',
-                          maximumFractionDigits: 0
-                        }).format(value);
+                        return formatCurrency(value, currency, 0);
                       }
                       return '';
                     }
@@ -322,18 +319,18 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Total Balance</h2>
           <p className={`text-2xl font-bold ${stats.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            ${stats.totalBalance.toFixed(2)}
+            {formatCurrency(stats.totalBalance, currency)}
           </p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Total Income</h2>
-          <p className="text-2xl font-bold text-green-600">${stats.totalIncome.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalIncome, currency)}</p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-2">Total Expenses</h2>
-          <p className="text-2xl font-bold text-red-600">${stats.totalExpenses.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalExpenses, currency)}</p>
         </div>
       </div>
 
@@ -343,8 +340,8 @@ const Dashboard: React.FC = () => {
           <div className="space-y-4">
             <div>
               <h3 className="text-sm text-gray-500 mb-1">Estimated Income</h3>
-              <p className="text-xl font-semibold text-green-600">
-                ${stats.predictions.estimatedIncome.toFixed(2)}
+                <p className="text-xl font-semibold text-green-600">
+                  {formatCurrency(stats.predictions.estimatedIncome, currency)}
                 {stats.predictions.estimatedIncome === 0 && (
                   <span className="text-sm text-gray-500 ml-2">(No past income data)</span>
                 )}
@@ -354,7 +351,7 @@ const Dashboard: React.FC = () => {
               <h3 className="text-sm text-gray-500 mb-1">Estimated Expenses</h3>
               <div className="flex items-center gap-2">
                 <p className="text-xl font-semibold text-red-600">
-                  ${stats.predictions.estimatedExpenses.toFixed(2)}
+                  {formatCurrency(stats.predictions.estimatedExpenses, currency)}
                   {stats.predictions.estimatedExpenses === 0 && (
                     <span className="text-sm text-gray-500 ml-2">(No past expense data)</span>
                   )}

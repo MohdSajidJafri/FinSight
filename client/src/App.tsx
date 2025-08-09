@@ -15,6 +15,8 @@ import Budget from './pages/Budget';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import NotFound from './pages/NotFound';
+import Settings from './pages/Settings';
+import Predictions from './pages/Predictions';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -31,8 +33,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => {
-  const { isAuthenticated } = useAuthStore();
-
   return (
     <Router>
       <Routes>
@@ -52,19 +52,12 @@ const App: React.FC = () => {
           <Route path="transactions" element={<Transactions />} />
           <Route path="transactions/add" element={<AddTransaction />} />
           <Route path="budget" element={<Budget />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="predictions" element={<Predictions />} />
         </Route>
 
-        {/* Redirect root to dashboard if authenticated, otherwise to login */}
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        {/* Redirect explicit /dashboard to root layout index for backward-compat */}
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
         
         {/* 404 route */}
         <Route path="*" element={<NotFound />} />

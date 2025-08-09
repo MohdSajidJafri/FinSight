@@ -6,6 +6,8 @@ const morgan = require('morgan');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const corsOptions = require('./config/cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -13,16 +15,27 @@ const transactionRoutes = require('./routes/transactions');
 const predictionRoutes = require('./routes/predictions');
 const budgetRoutes = require('./routes/budgets');
 const categoryRoutes = require('./routes/categories');
+const userRoutes = require('./routes/users');
 
 // Initialize express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Security & core middleware
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(helmet());
+app.use(express.json({ limit: '200kb' }));
 app.use(morgan('dev'));
 app.use(cookieParser());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api', limiter);
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -49,6 +62,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/predictions', predictionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/users', userRoutes);
 
 // Also mount routes directly for compatibility with frontend
 app.use('/transactions', transactionRoutes);

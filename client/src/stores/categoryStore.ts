@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import api from '../services/api';
 
 interface Category {
   _id?: string;
@@ -19,7 +20,7 @@ interface CategoryState {
   clearError: () => void;
 }
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Using shared axios instance
 
 export const useCategoryStore = create<CategoryState>((set, get) => ({
   categories: [],
@@ -29,20 +30,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   getCategories: async () => {
     try {
       set({ isLoading: true, error: null });
-      const response = await fetch(`${API_URL}/categories`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch categories');
-      }
-
-      const data = await response.json();
+      const { data } = await api.get('/categories');
       set({ categories: data.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.message || 'An error occurred', isLoading: false });
@@ -52,21 +40,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   addCategory: async (category) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await fetch(`${API_URL}/categories`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(category)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add category');
-      }
-
-      const data = await response.json();
+      const { data } = await api.post('/categories', category);
       set((state) => ({
         categories: [...state.categories, data.data],
         isLoading: false
@@ -79,21 +53,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   updateCategory: async (id, category) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await fetch(`${API_URL}/categories/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(category)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update category');
-      }
-
-      const data = await response.json();
+      const { data } = await api.put(`/categories/${id}`, category);
       set((state) => ({
         categories: state.categories.map((c) => 
           c._id === id ? { ...c, ...data.data } : c
@@ -108,18 +68,7 @@ export const useCategoryStore = create<CategoryState>((set, get) => ({
   deleteCategory: async (id) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await fetch(`${API_URL}/categories/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete category');
-      }
+      await api.delete(`/categories/${id}`);
 
       set((state) => ({
         categories: state.categories.filter((c) => c._id !== id),

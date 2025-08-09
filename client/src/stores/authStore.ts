@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import axios from 'axios';
+import api from '../services/api';
 
 interface User {
   _id: string;
@@ -22,15 +22,11 @@ interface AuthState {
   logout: () => void;
   loadUser: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   clearError: () => void;
 }
 
-// API URL - remove /api suffix as it's handled by the backend routes
-const BASE_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
-const API_URL = `${BASE_URL}/api`;
-
-// Configure axios defaults for all requests
-axios.defaults.withCredentials = true;
+// Using shared axios instance configured in services/api
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -46,16 +42,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true, error: null });
           
-          console.log(`Attempting login to: ${API_URL}/auth/login`);
+          console.log(`Attempting login to: /auth/login`);
           
-          const response = await axios.post(
-            `${API_URL}/auth/login`, 
-            { email, password },
-            { 
-              headers: { 'Content-Type': 'application/json' },
-              withCredentials: true 
-            }
-          );
+          const response = await api.post('/auth/login', { email, password });
           
           console.log('Login response:', response.data);
           
@@ -92,16 +81,9 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true, error: null });
           
-          console.log(`Attempting registration to: ${API_URL}/auth/register`);
+          console.log(`Attempting registration to: /auth/register`);
           
-          const response = await axios.post(
-            `${API_URL}/auth/register`, 
-            { name, email, password },
-            { 
-              headers: { 'Content-Type': 'application/json' },
-              withCredentials: true 
-            }
-          );
+          const response = await api.post('/auth/register', { name, email, password });
           
           console.log('Registration response:', response.data);
           
@@ -136,7 +118,7 @@ export const useAuthStore = create<AuthState>()(
         localStorage.removeItem('auth-token');
         
         // Try to call logout endpoint (but don't wait for it)
-        axios.get(`${API_URL}/auth/logout`, { withCredentials: true })
+        api.get('/auth/logout')
           .catch(err => console.error('Logout error:', err));
         
         // Reset state
@@ -166,13 +148,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true });
           
-          const response = await axios.get(`${API_URL}/auth/me`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            withCredentials: true
-          });
+          const response = await api.get('/auth/me');
           
           if (response.data.success && response.data.data) {
             set({
@@ -212,13 +188,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true, error: null });
           
-          const response = await axios.put(`${API_URL}/users/me`, userData, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            withCredentials: true
-          });
+          const response = await api.put('/auth/me', userData);
           
           if (response.data.success && response.data.data) {
             set({
@@ -240,6 +210,24 @@ export const useAuthStore = create<AuthState>()(
       // Clear error
       clearError: () => {
         set({ error: null });
+      },
+
+      // Change password
+      changePassword: async (currentPassword: string, newPassword: string) => {
+        try {
+          set({ isLoading: true, error: null });
+          const response = await api.post('/users/password', { currentPassword, newPassword });
+          if (!response.data?.success) {
+            throw new Error('Password change failed');
+          }
+          set({ isLoading: false });
+        } catch (err: any) {
+          set({
+            isLoading: false,
+            error: err.response?.data?.message || 'Password change failed. Please try again.'
+          });
+          throw err;
+        }
       }
     }),
     {

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useBudgetStore } from '../stores/budgetStore';
 import { useTransactionStore } from '../stores/transactionStore';
 import { useCategoryStore } from '../stores/categoryStore';
+import { useAuthStore } from '../stores/authStore';
+import { formatCurrency } from '../lib/currency';
 
 interface Category {
   _id: string;
@@ -39,6 +41,8 @@ const BudgetPage: React.FC = () => {
   const { budgets, isLoading, error, getBudgets, addBudget, updateBudget, deleteBudget } = useBudgetStore();
   const { transactions, getTransactions } = useTransactionStore();
   const { categories, getCategories } = useCategoryStore();
+  const { user } = useAuthStore();
+  const currency = user?.currency || 'USD';
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState<BudgetFormData>({
@@ -288,18 +292,18 @@ const BudgetPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Budget</span>
-                    <span className="font-medium">${budget.amount.toFixed(2)}</span>
+                    <span className="font-medium">{formatCurrency(budget.amount, currency)}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Spent</span>
-                    <span className="font-medium">${spentAmount.toFixed(2)}</span>
+                    <span className="font-medium">{formatCurrency(spentAmount, currency)}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Remaining</span>
                     <span className={`font-medium ${remainingAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${remainingAmount.toFixed(2)}
+                      {formatCurrency(remainingAmount, currency)}
                     </span>
                   </div>
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
+import api from '../services/api';
 
 interface Category {
   _id: string;
@@ -36,8 +36,7 @@ interface TransactionState {
   clearError: () => void;
 }
 
-// API URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// API base is configured in the shared axios instance
 
 export const useTransactionStore = create<TransactionState>((set, get) => ({
   transactions: [],
@@ -49,11 +48,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const token = localStorage.getItem('auth-token');
-      const res = await axios.post(`${API_URL}/transactions`, transaction, {
-        headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true
-      });
+      const res = await api.post('/transactions', transaction);
 
       if (res.data.success) {
         set((state) => ({
@@ -75,11 +70,7 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const token = localStorage.getItem('auth-token');
-      const res = await axios.get(`${API_URL}/transactions`, {
-        headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true
-      });
+      const res = await api.get('/transactions');
 
       if (res.data.success) {
         set({

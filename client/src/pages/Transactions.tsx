@@ -2,9 +2,13 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTransactionStore } from '../stores/transactionStore';
 import { PlusIcon } from '@heroicons/react/24/outline';
+import { useAuthStore } from '../stores/authStore';
+import { formatCurrency } from '../lib/currency';
 
 const Transactions: React.FC = () => {
   const { transactions, getTransactions, isLoading, error } = useTransactionStore();
+  const { user } = useAuthStore();
+  const currency = user?.currency || 'USD';
 
   useEffect(() => {
     getTransactions();
@@ -112,8 +116,8 @@ const Transactions: React.FC = () => {
                               transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                             }
                           >
-                            {transaction.type === 'income' ? '+' : '-'}$
-                            {transaction.amount.toFixed(2)}
+                            {transaction.type === 'income' ? '+' : '-'}
+                            {formatCurrency(transaction.amount, currency)}
                           </span>
                         </td>
                       </tr>

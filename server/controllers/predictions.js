@@ -1,4 +1,8 @@
 const predictionService = require('../services/predictionService');
+const Prediction = require('../models/Prediction');
+const Category = require('../models/Category');
+const Transaction = require('../models/Transaction');
+const User = require('../models/User');
 
 // @desc    Generate expense predictions
 // @route   POST /api/predictions/expenses

@@ -36,7 +36,9 @@ const DashboardLayout: React.FC = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
     { name: 'Transactions', href: '/transactions', icon: CreditCardIcon },
-    { name: 'Budget', href: '/budget', icon: ChartPieIcon }
+    { name: 'Budget', href: '/budget', icon: ChartPieIcon },
+    { name: 'Predictions', href: '/predictions', icon: ArrowTrendingUpIcon },
+    { name: 'Settings', href: '/settings', icon: CogIcon }
   ];
 
   return (
