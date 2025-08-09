@@ -28,6 +28,13 @@ app.use(express.json({ limit: '200kb' }));
 app.use(morgan('dev'));
 app.use(cookieParser());
 
+// Disable caching for API responses to avoid 304/empty bodies via proxies
+app.set('etag', false);
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
