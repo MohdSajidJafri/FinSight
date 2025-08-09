@@ -7,7 +7,7 @@ interface TransactionInput {
   description: string;
   amount: number;
   type: 'income' | 'expense';
-  category: string; // This will be the category ID
+  category: string; // ID or custom category string
   date: string;
 }
 
@@ -17,9 +17,13 @@ const AddTransaction: React.FC = () => {
   const { categories, getCategories } = useCategoryStore();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
+  // Only expense transactions are allowed
+  const type: 'income' | 'expense' = 'expense';
   const [category, setCategory] = useState('');
+  const [isOther, setIsOther] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     getCategories();
@@ -28,12 +32,18 @@ const AddTransaction: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setLocalError(null);
     try {
+      const chosenCategory = isOther ? customCategory.trim() : category;
+      if (!chosenCategory) {
+        setLocalError('Please select a category or enter a custom category');
+        return;
+      }
       const transactionData: TransactionInput = {
         description,
         amount: parseFloat(amount),
         type,
-        category,
+        category: chosenCategory,
         date
       };
       await addTransaction(transactionData);
@@ -44,65 +54,63 @@ const AddTransaction: React.FC = () => {
     }
   };
 
-  const filteredCategories = categories.filter(cat => cat.type === type);
+  const filteredCategories = categories.filter(cat => cat.type === 'expense');
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Add Transaction</h1>
+      <h1 className="text-2xl font-bold mb-6">Add Expense</h1>
 
-      {error && (
+      {(error || localError) && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+          {error || localError}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-            Type
-          </label>
-          <select
-            id="type"
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as 'income' | 'expense');
-              setCategory(''); // Reset category when type changes
-            }}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            required
-          >
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
-        </div>
-
-        <div>
           <label htmlFor="category" className="block text-sm font-medium text-gray-700">
             Category
           </label>
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1">
             <select
               id="categorySelect"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              value={isOther ? '__other__' : category}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '__other__') {
+                  setIsOther(true);
+                  setCategory('');
+                } else {
+                  setIsOther(false);
+                  setCategory(value);
+                }
+              }}
               className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
             >
-              <option value="">Select a category or type below</option>
+              <option value="">Select a category</option>
               {filteredCategories.map((cat) => (
                 <option key={cat._id} value={cat._id} style={{ color: cat.color }}>
                   {cat.name}
                 </option>
               ))}
+              <option value="__other__">Other…</option>
             </select>
-            <input
-              type="text"
-              id="customCategory"
-              placeholder="Or type custom category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            />
           </div>
+          {isOther && (
+            <div className="mt-2">
+              <label htmlFor="customCategory" className="block text-sm font-medium text-gray-700">
+                Enter custom category
+              </label>
+              <input
+                type="text"
+                id="customCategory"
+                placeholder="e.g., Gift, Repair, etc."
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+          )}
         </div>
 
         <div>
