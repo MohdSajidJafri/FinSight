@@ -180,7 +180,8 @@ exports.deleteTransaction = async (req, res) => {
       });
     }
 
-    await transaction.remove();
+    // Mongoose v7: use deleteOne instead of remove
+    await transaction.deleteOne();
 
     res.status(200).json({
       success: true,

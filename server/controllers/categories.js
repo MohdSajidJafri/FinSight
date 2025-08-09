@@ -141,7 +141,8 @@ exports.deleteCategory = async (req, res) => {
       });
     }
 
-    await category.remove();
+    // Mongoose v7: use deleteOne instead of remove
+    await category.deleteOne();
 
     res.status(200).json({
       success: true,
