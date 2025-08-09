@@ -6,7 +6,7 @@ import { useAuthStore } from '../stores/authStore';
 import { formatCurrency } from '../lib/currency';
 
 const Transactions: React.FC = () => {
-  const { transactions, getTransactions, isLoading, error } = useTransactionStore();
+  const { transactions, getTransactions, deleteTransaction, isLoading, error } = useTransactionStore();
   const { user } = useAuthStore();
   const currency = user?.currency || 'USD';
 
@@ -83,7 +83,7 @@ const Transactions: React.FC = () => {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {transactions.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-4 text-sm text-gray-500 text-center">
+                      <td colSpan={6} className="px-3 py-4 text-sm text-gray-500 text-center">
                         No transactions found. Add your first transaction!
                       </td>
                     </tr>
@@ -119,6 +119,19 @@ const Transactions: React.FC = () => {
                             {transaction.type === 'income' ? '+' : '-'}
                             {formatCurrency(transaction.amount, currency)}
                           </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-right">
+                          <button
+                            onClick={async () => {
+                              if (window.confirm('Delete this transaction?')) {
+                                await deleteTransaction(transaction._id);
+                                await getTransactions();
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))

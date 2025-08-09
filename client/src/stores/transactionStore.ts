@@ -33,6 +33,7 @@ interface TransactionState {
   error: string | null;
   addTransaction: (transaction: TransactionInput) => Promise<void>;
   getTransactions: () => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -83,6 +84,26 @@ export const useTransactionStore = create<TransactionState>((set, get) => ({
         isLoading: false,
         error: err.response?.data?.message || 'Failed to fetch transactions'
       });
+    }
+  },
+
+  // Delete transaction
+  deleteTransaction: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      await api.delete(`/transactions/${id}`);
+
+      set((state) => ({
+        transactions: state.transactions.filter((t) => t._id !== id),
+        isLoading: false
+      }));
+    } catch (err: any) {
+      set({
+        isLoading: false,
+        error: err.response?.data?.message || 'Failed to delete transaction'
+      });
+      throw err;
     }
   },
 
