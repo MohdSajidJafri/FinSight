@@ -10,6 +10,27 @@ const Transactions: React.FC = () => {
   const { user } = useAuthStore();
   const currency = user?.currency || 'USD';
 
+  const profileMonthlyIncome = user?.monthlyIncome || 0;
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const monthTransactions = transactions.filter((t) => {
+    const d = new Date(t.date);
+    return d >= monthStart && d <= monthEnd;
+  });
+
+  const monthIncome = monthTransactions
+    .filter((t) => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthExpenses = monthTransactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthNet = monthIncome - monthExpenses;
+
   useEffect(() => {
     getTransactions();
   }, [getTransactions]);
@@ -31,18 +52,40 @@ const Transactions: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="sm:flex sm:items-center">
+      <div className="sm:flex sm:items-center sm:justify-between mb-4">
         <div className="sm:flex-auto">
           <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Detailed list of all your income and expenses.
+          </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Link
-            to="/transactions/add"
-            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-          >
-            <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-            Add Transaction
-          </Link>
+        <Link
+          to="/transactions/add"
+          className="mt-4 sm:mt-0 inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+        >
+          <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+          Add Transaction
+        </Link>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Monthly Income (Profile)</p>
+          <p className="mt-1 text-lg font-semibold text-emerald-600">
+            {formatCurrency(profileMonthlyIncome, currency)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">This Month Expenses</p>
+          <p className="mt-1 text-lg font-semibold text-rose-600">
+            {formatCurrency(monthExpenses, currency)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Net Cashflow</p>
+          <p className={`mt-1 text-lg font-semibold ${monthNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {formatCurrency(monthNet, currency)}
+          </p>
         </div>
       </div>
 

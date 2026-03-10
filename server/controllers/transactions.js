@@ -1,6 +1,34 @@
 const Transaction = require('../models/Transaction');
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
+const Category = require('../models/Category');
+
+const CATEGORY_FIELDS = 'name icon color type';
+
+async function resolveAndNormalizeCategoriesForUser(userId, records, getCategoryValue) {
+  const candidateIds = new Set();
+
+  records.forEach((r) => {
+    const v = getCategoryValue(r);
+    if (typeof v === 'string' && mongoose.Types.ObjectId.isValid(v)) {
+      candidateIds.add(v);
+    } else if (v && typeof v === 'object' && mongoose.Types.ObjectId.isValid(v)) {
+      candidateIds.add(v.toString());
+    }
+  });
+
+  if (candidateIds.size === 0) {
+    return { categoryById: new Map(), idsToCast: new Set() };
+  }
+
+  const categories = await Category.find({
+    user: userId,
+    _id: { $in: Array.from(candidateIds) }
+  }).select(CATEGORY_FIELDS);
+
+  const categoryById = new Map(categories.map((c) => [c._id.toString(), c]));
+  return { categoryById, idsToCast: new Set(categoryById.keys()) };
+}
 
 // @desc    Get all transactions for a user
 // @route   GET /api/transactions
@@ -8,20 +36,60 @@ const mongoose = require('mongoose');
 exports.getTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.find({ user: req.user.id })
-      .populate('category', 'name icon color')
       .sort({ date: -1 });
 
-    // Format transactions to handle string categories
-    const formattedTransactions = transactions.map(t => {
-      const transaction = t.toObject();
-      if (typeof transaction.category === 'string') {
-        transaction.category = {
-          name: transaction.category,
-          _id: transaction.category,
-          type: transaction.type // Set type same as transaction type
-        };
+    const { categoryById, idsToCast } = await resolveAndNormalizeCategoriesForUser(
+      req.user.id,
+      transactions,
+      (t) => t.category
+    );
+
+    // Cast legacy string ObjectId categories to real ObjectIds (one-time normalization)
+    const ops = [];
+    transactions.forEach((t) => {
+      if (typeof t.category === 'string' && idsToCast.has(t.category)) {
+        ops.push({
+          updateOne: {
+            filter: { _id: t._id, user: req.user.id },
+            update: { $set: { category: new mongoose.Types.ObjectId(t.category) } }
+          }
+        });
       }
-      return transaction;
+    });
+    if (ops.length > 0) {
+      await Transaction.bulkWrite(ops, { ordered: false });
+    }
+
+    const formattedTransactions = transactions.map((t) => {
+      const tx = t.toObject();
+      const raw = tx.category;
+
+      // If already populated object with name, keep it
+      if (raw && typeof raw === 'object' && raw.name) {
+        return tx;
+      }
+
+      const id = typeof raw === 'string'
+        ? raw
+        : raw && mongoose.Types.ObjectId.isValid(raw)
+          ? raw.toString()
+          : null;
+
+      const resolved = id ? categoryById.get(id) : null;
+      if (resolved) {
+        tx.category = {
+          _id: resolved._id,
+          name: resolved.name,
+          icon: resolved.icon,
+          color: resolved.color,
+          type: resolved.type
+        };
+      } else if (typeof raw === 'string') {
+        // Custom category string
+        tx.category = { _id: raw, name: raw, type: tx.type };
+      }
+
+      return tx;
     });
 
     res.status(200).json({
@@ -42,7 +110,7 @@ exports.getTransactions = async (req, res) => {
 // @access  Private
 exports.getTransaction = async (req, res) => {
   try {
-    const transaction = await Transaction.findById(req.params.id).populate('category', 'name icon color');
+    const transaction = await Transaction.findById(req.params.id);
 
     if (!transaction) {
       return res.status(404).json({
@@ -59,9 +127,28 @@ exports.getTransaction = async (req, res) => {
       });
     }
 
+    const { categoryById } = await resolveAndNormalizeCategoriesForUser(
+      req.user.id,
+      [transaction],
+      (t) => t.category
+    );
+    const tx = transaction.toObject();
+    const raw = tx.category;
+    const id = typeof raw === 'string'
+      ? raw
+      : raw && mongoose.Types.ObjectId.isValid(raw)
+        ? raw.toString()
+        : null;
+    const resolved = id ? categoryById.get(id) : null;
+    if (resolved) {
+      tx.category = { _id: resolved._id, name: resolved.name, icon: resolved.icon, color: resolved.color, type: resolved.type };
+    } else if (typeof raw === 'string') {
+      tx.category = { _id: raw, name: raw, type: tx.type };
+    }
+
     res.status(200).json({
       success: true,
-      data: transaction
+      data: tx
     });
   } catch (err) {
     console.error(err);
@@ -85,24 +172,30 @@ exports.createTransaction = async (req, res) => {
     // Add user to request body
     req.body.user = req.user.id;
 
+    // If category is a real Category ID, cast to ObjectId for consistent storage
+    if (typeof req.body.category === 'string' && mongoose.Types.ObjectId.isValid(req.body.category)) {
+      const existingCategory = await Category.findOne({ _id: req.body.category, user: req.user.id }).select(CATEGORY_FIELDS);
+      if (existingCategory) {
+        req.body.category = existingCategory._id;
+      }
+    }
+
     // Create the transaction
     const transaction = await Transaction.create(req.body);
 
-    // If category is a reference ID, populate it
-    if (mongoose.Types.ObjectId.isValid(transaction.category)) {
-      await transaction.populate('category', 'name icon color');
-    } else {
-      // If category is a string, format it like a category object
-      transaction.category = {
-        name: transaction.category,
-        _id: transaction.category,
-        type: transaction.type // Set type same as transaction type
-      };
+    const tx = transaction.toObject();
+    const raw = tx.category;
+    const id = raw && mongoose.Types.ObjectId.isValid(raw) ? raw.toString() : null;
+    const resolved = id ? await Category.findOne({ _id: id, user: req.user.id }).select(CATEGORY_FIELDS) : null;
+    if (resolved) {
+      tx.category = { _id: resolved._id, name: resolved.name, icon: resolved.icon, color: resolved.color, type: resolved.type };
+    } else if (typeof raw === 'string') {
+      tx.category = { _id: raw, name: raw, type: tx.type };
     }
 
     res.status(201).json({
       success: true,
-      data: transaction
+      data: tx
     });
   } catch (err) {
     console.error(err);
@@ -140,14 +233,40 @@ exports.updateTransaction = async (req, res) => {
       });
     }
 
+    // If category is a real Category ID, cast to ObjectId for consistent storage
+    if (typeof req.body.category === 'string' && mongoose.Types.ObjectId.isValid(req.body.category)) {
+      const existingCategory = await Category.findOne({ _id: req.body.category, user: req.user.id }).select('_id');
+      if (existingCategory) {
+        req.body.category = existingCategory._id;
+      }
+    }
+
     transaction = await Transaction.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
     });
 
+    const formatted = transaction.toObject();
+    const raw = formatted.category;
+    const id = typeof raw === 'string'
+      ? raw
+      : raw && mongoose.Types.ObjectId.isValid(raw)
+        ? raw.toString()
+        : null;
+    if (id && mongoose.Types.ObjectId.isValid(id)) {
+      const resolved = await Category.findOne({ _id: id, user: req.user.id }).select(CATEGORY_FIELDS);
+      if (resolved) {
+        formatted.category = { _id: resolved._id, name: resolved.name, icon: resolved.icon, color: resolved.color, type: resolved.type };
+      } else if (typeof raw === 'string') {
+        formatted.category = { _id: raw, name: raw, type: formatted.type };
+      }
+    } else if (typeof raw === 'string') {
+      formatted.category = { _id: raw, name: raw, type: formatted.type };
+    }
+
     res.status(200).json({
       success: true,
-      data: transaction
+      data: formatted
     });
   } catch (err) {
     console.error(err);

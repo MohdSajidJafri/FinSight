@@ -14,7 +14,7 @@ const UserSchema = new mongoose.Schema({
     required: [true, 'Please add an email'],
     unique: true,
     match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
       'Please add a valid email'
     ]
   },
@@ -54,8 +54,12 @@ UserSchema.pre('save', async function(next) {
 
 // Sign JWT and return
 UserSchema.methods.getSignedJwtToken = function() {
-  return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 10) {
+    throw new Error('JWT_SECRET is not configured or too short. Check server/.env');
+  }
+  return jwt.sign({ id: this._id }, secret, {
+    expiresIn: process.env.JWT_EXPIRE || '30d'
   });
 };
 

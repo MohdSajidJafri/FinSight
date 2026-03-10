@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
 import api from '../services/api';
 import { useAuthStore } from '../stores/authStore';
@@ -66,17 +66,16 @@ const Predictions: React.FC = () => {
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<ChartJS | null>(null);
 
-  const token = useMemo(() => localStorage.getItem('auth-token'), []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
+      const token = localStorage.getItem('auth-token');
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
       let [predRes, recsRes] = await Promise.all([
-        api.get('/predictions', { params: { type: predType, period }, headers, withCredentials: true }),
+        api.get('/predictions', { params: { type: predType, period, autoRefresh: true }, headers, withCredentials: true }),
         api.get('/predictions/recommendations', { headers, withCredentials: true })
       ]);
 
@@ -89,18 +88,16 @@ const Predictions: React.FC = () => {
           } else if (predType === 'savings') {
             await api.post('/predictions/savings', { period });
           }
-          const retry = await api.get('/predictions', { params: { type: predType, period }, headers, withCredentials: true });
+          const retry = await api.get('/predictions', { params: { type: predType, period, autoRefresh: true }, headers, withCredentials: true });
           preds = retry.data?.data || [];
         } catch (_) {
           // keep empty; error surfaced below if needed
         }
       }
       setPredictions(preds);
-      // Override monthlyIncome in recommendations with user profile monthlyIncome
-      const profileIncome = user?.monthlyIncome || 0;
       const recommendations = recsRes.data?.data || null;
       if (recommendations) {
-        setRecs({ ...recommendations, monthlyIncome: profileIncome });
+        setRecs(recommendations);
       } else {
         setRecs(null);
       }
@@ -109,12 +106,18 @@ const Predictions: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [period, predType]);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, predType]);
+  }, [fetchData]);
+
+  // Refetch when tab/window regains focus (e.g. after adding a transaction)
+  useEffect(() => {
+    const onFocus = () => fetchData();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchData]);
 
   // Render/Update bar chart for expense predictions
   useEffect(() => {
@@ -182,7 +185,7 @@ const Predictions: React.FC = () => {
         }
       }
     });
-  }, [predType, predictions]);
+  }, [predType, predictions, currency]);
 
   const savingsPrediction = useMemo(() => predictions.find(p => p.type === 'savings'), [predictions]);
 

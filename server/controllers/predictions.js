@@ -3,6 +3,7 @@ const Prediction = require('../models/Prediction');
 const Category = require('../models/Category');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
+const Budget = require('../models/Budget');
 
 // @desc    Generate expense predictions
 // @route   POST /api/predictions/expenses
@@ -65,6 +66,32 @@ exports.generateSavingsPrediction = async (req, res) => {
 exports.getPredictions = async (req, res) => {
   try {
     const { type, period } = req.query;
+    const autoRefresh = req.query.autoRefresh !== 'false';
+
+    if (autoRefresh && type && period && (type === 'expense' || type === 'savings')) {
+      const latestTxQuery = { user: req.user.id };
+      if (type === 'expense') latestTxQuery.type = 'expense';
+
+      const latestTx = await Transaction.findOne(latestTxQuery)
+        .sort({ date: -1, createdAt: -1 })
+        .select('date createdAt');
+
+      const latestPred = await Prediction.findOne({ user: req.user.id, type, period })
+        .sort({ createdAt: -1 })
+        .select('createdAt');
+
+      const latestTxTime = latestTx ? new Date(latestTx.date || latestTx.createdAt) : null;
+      const latestPredTime = latestPred ? new Date(latestPred.createdAt) : null;
+
+      // Regenerate if we've got newer transactions than the latest prediction
+      if (latestTxTime && (!latestPredTime || latestPredTime < latestTxTime)) {
+        if (type === 'expense') {
+          await predictionService.generateExpensePredictions(req.user.id, period);
+        } else {
+          await predictionService.generateSavingsPrediction(req.user.id, period);
+        }
+      }
+    }
     
     // Get predictions
     const predictions = await predictionService.getPredictions(
@@ -148,14 +175,27 @@ exports.getBudgetRecommendations = async (req, res) => {
     const user = await User.findById(req.user.id);
     const monthlyIncome = user.monthlyIncome || 0;
     
-    // Calculate average monthly expenses by category
+    // Calculate average monthly expenses by category (from actual transactions)
     const categoryExpenses = {};
-    categories.forEach(category => {
-      const categoryTransactions = transactions.filter(
-        t => t.category && t.category._id.toString() === category._id.toString()
-      );
-      
-      // Calculate average monthly expense for this category
+    categories.forEach((category) => {
+      const categoryId = category._id.toString();
+      const categoryTransactions = transactions.filter((t) => {
+        if (!t || !t.category) return false;
+        // Skip custom string categories – they don't map to Category docs
+        if (typeof t.category === 'string') return false;
+
+        const txCategoryId = t.category._id
+          ? t.category._id.toString()
+          : String(t.category);
+
+        return txCategoryId === categoryId;
+      });
+
+      // If there are no real expenses yet for this category, leave it for budget fallback
+      if (categoryTransactions.length === 0) {
+        return;
+      }
+
       const totalAmount = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
       const monthlyAvg = totalAmount / 3; // 3 months of data
       
@@ -171,6 +211,27 @@ exports.getBudgetRecommendations = async (req, res) => {
       };
     });
     
+    // If we still have no expenses but user has budgets, fall back to budget amounts
+    if (Object.keys(categoryExpenses).length === 0) {
+      const budgets = await Budget.find({ user: req.user.id, isActive: true });
+      budgets.forEach((b) => {
+        const key = typeof b.category === 'string' ? b.category : (b.category && b.category.toString());
+        if (!key) return;
+        const category = categories.find((c) => c._id.toString() === key);
+        if (!category) return;
+        categoryExpenses[category._id] = {
+          category: {
+            _id: category._id,
+            name: category.name,
+            icon: category.icon,
+            color: category.color
+          },
+          monthlyAvg: b.amount,
+          percentOfIncome: monthlyIncome > 0 ? (b.amount / monthlyIncome) * 100 : 0
+        };
+      });
+    }
+
     // Generate recommendations
     const recommendations = [];
     const idealSavingsRate = 0.2; // 20% of income

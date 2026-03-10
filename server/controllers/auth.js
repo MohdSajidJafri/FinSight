@@ -1,6 +1,16 @@
 const User = require('../models/User');
 const { validationResult } = require('express-validator');
 const mongoose = require('mongoose');
+const { seedDefaultCategories } = require('../seed/defaultCategories');
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+function logError(context, err) {
+  console.error(`[AUTH:${context}]`, err.message);
+  console.error('[STACK]', err.stack);
+  if (err.name) console.error('[NAME]', err.name);
+  if (err.code) console.error('[CODE]', err.code);
+}
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -31,12 +41,16 @@ exports.register = async (req, res) => {
       password
     });
 
+    // Seed default categories for new user
+    await seedDefaultCategories(user._id);
+
     sendTokenResponse(user, 201, res);
   } catch (err) {
-    console.error(err);
+    logError('register', err);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: isDev ? err.message : 'Server error',
+      ...(isDev && { errorName: err.name, errorCode: err.code })
     });
   }
 };
@@ -75,10 +89,11 @@ exports.login = async (req, res) => {
 
     sendTokenResponse(user, 200, res);
   } catch (err) {
-    console.error(err);
+    logError('login', err);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: isDev ? err.message : 'Server error',
+      ...(isDev && { errorName: err.name })
     });
   }
 };
@@ -95,10 +110,10 @@ exports.getMe = async (req, res) => {
       data: user
     });
   } catch (err) {
-    console.error(err);
+    logError('getMe', err);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: isDev ? err.message : 'Server error'
     });
   }
 };
@@ -127,8 +142,11 @@ exports.updateMe = async (req, res) => {
 
     res.status(200).json({ success: true, data: user });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    logError('updateMe', err);
+    res.status(500).json({
+      success: false,
+      message: isDev ? err.message : 'Server error'
+    });
   }
 };
 
@@ -149,13 +167,11 @@ exports.logout = (req, res) => {
 
 // Get token from model, create cookie and send response
 const sendTokenResponse = (user, statusCode, res) => {
-  // Create token
+  const cookieExpireDays = parseInt(process.env.JWT_COOKIE_EXPIRE, 10) || 30;
   const token = user.getSignedJwtToken();
 
   const options = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
-    ),
+    expires: new Date(Date.now() + cookieExpireDays * 24 * 60 * 60 * 1000),
     httpOnly: true
   };
 

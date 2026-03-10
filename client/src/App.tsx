@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Chart, registerables } from 'chart.js';
 import { useAuthStore } from './stores/authStore';
@@ -33,6 +33,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App: React.FC = () => {
+  const loadUser = useAuthStore((s) => s.loadUser);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
   return (
     <Router>
       <Routes>

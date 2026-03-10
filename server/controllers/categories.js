@@ -1,12 +1,20 @@
 const Category = require('../models/Category');
 const { validationResult } = require('express-validator');
+const { seedDefaultCategories } = require('../seed/defaultCategories');
 
 // @desc    Get all categories for a user
 // @route   GET /api/categories
 // @access  Private
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ user: req.user.id });
+    let categories = await Category.find({ user: req.user.id });
+
+    // If user has no categories (e.g. after DB reset), seed defaults
+    if (categories.length === 0) {
+      await seedDefaultCategories(req.user.id);
+      categories = await Category.find({ user: req.user.id });
+    }
+
     res.status(200).json({
       success: true,
       data: categories

@@ -1,6 +1,7 @@
 const Transaction = require('../models/Transaction');
 const Prediction = require('../models/Prediction');
 const Category = require('../models/Category');
+const Budget = require('../models/Budget');
 
 /**
  * Generate expense predictions for a user
@@ -20,12 +21,25 @@ exports.generateExpensePredictions = async (userId, period = 'monthly', options 
       date: { $gte: getHistoricalStartDate(period) }
     }).populate('category');
 
-    // Group transactions by category
+    // Get active budgets as a fallback signal when there is little/no history
+    const budgets = await Budget.find({ user: userId, isActive: true });
+    const budgetsByCategoryId = {};
+    budgets.forEach((b) => {
+      const key = typeof b.category === 'string' ? b.category : (b.category && b.category.toString());
+      if (!key) return;
+      budgetsByCategoryId[key] = b;
+    });
+
+    // Group transactions by category (skip string/custom categories)
     const transactionsByCategory = {};
-    categories.forEach(category => {
-      transactionsByCategory[category._id] = transactions.filter(
-        t => t.category && t.category._id.toString() === category._id.toString()
-      );
+    categories.forEach((category) => {
+      const categoryId = category._id.toString();
+      transactionsByCategory[category._id] = transactions.filter((t) => {
+        if (!t || !t.category) return false;
+        if (typeof t.category === 'string') return false;
+        if (!t.category._id) return false;
+        return t.category._id.toString() === categoryId;
+      });
     });
 
     // Generate predictions for each category
@@ -35,20 +49,26 @@ exports.generateExpensePredictions = async (userId, period = 'monthly', options 
     const predictionEndDate = getPredictionEndDate(predictionStartDate, period);
 
     for (const category of categories) {
+      const categoryId = category._id.toString();
       const categoryTransactions = transactionsByCategory[category._id] || [];
       
-      if (options.model === 'prophet') {
+      let predictedAmount = 0;
+      let confidence = 0.4;
+
+      if (categoryTransactions.length > 0) {
+        if (options.model === 'prophet') {
         try {
           const mlPred = await callMlService(categoryTransactions, period, 1);
           if (!mlPred || mlPred.length === 0) continue;
           const amount = mlPred[0].yhat;
-          const confidence = 0.7; // Use interval later if needed
+          predictedAmount = Math.max(0, amount);
+          confidence = 0.7; // Use interval later if needed
           predictions.push({
             user: userId,
             category: category._id,
             type: 'expense',
             period,
-            predictedAmount: Math.max(0, amount),
+            predictedAmount,
             confidence,
             startDate: predictionStartDate,
             endDate: predictionEndDate,
@@ -62,11 +82,19 @@ exports.generateExpensePredictions = async (userId, period = 'monthly', options 
         }
       }
 
-      if (categoryTransactions.length < 1) {
-        continue;
+        const regression = linearRegressionPredict(categoryTransactions, period);
+        predictedAmount = regression.amount;
+        confidence = calculateConfidence(categoryTransactions);
+      } else {
+        // No transactions yet for this category: fall back to budget amount if available
+        const budget = budgetsByCategoryId[categoryId];
+        if (!budget) {
+          // Nothing to base a prediction on
+          continue;
+        }
+        predictedAmount = budget.amount;
+        confidence = 0.4;
       }
-      const prediction = linearRegressionPredict(categoryTransactions, period);
-      const confidence = calculateConfidence(categoryTransactions);
 
       // Create prediction object
       predictions.push({
@@ -74,8 +102,8 @@ exports.generateExpensePredictions = async (userId, period = 'monthly', options 
         category: category._id,
         type: 'expense',
         period,
-        predictedAmount: prediction.amount,
-        confidence: confidence,
+        predictedAmount,
+        confidence,
         startDate: predictionStartDate,
         endDate: predictionEndDate,
         factors: [
@@ -200,7 +228,10 @@ exports.generateSavingsPrediction = async (userId, period = 'monthly', options =
     let predictedSavings;
     if (options.model === 'prophet') {
       try {
-        const series = savingsData.map((d) => ({ date: new Date(d.period + '-01'), value: d.savings }));
+        const series = savingsData.map((d) => {
+          const [y, m] = d.period.split('-').map(Number);
+          return { date: new Date(y, m - 1, 1), value: d.savings };
+        });
         const mlPred = await callMlService(series, period, 1);
         predictedSavings = { amount: mlPred && mlPred[0] ? mlPred[0].yhat : 0, confidence: 0.7 };
       } catch (e) {
@@ -287,18 +318,29 @@ exports.getPredictions = async (userId, type, period) => {
  */
 function getHistoricalStartDate(period) {
   const now = new Date();
+  const copy = (d) => new Date(d.getTime());
+  const monthsAgo = (n) => {
+    const d = copy(now);
+    d.setMonth(d.getMonth() - n);
+    return d;
+  };
+  const yearsAgo = (n) => {
+    const d = copy(now);
+    d.setFullYear(d.getFullYear() - n);
+    return d;
+  };
+
   switch (period) {
     case 'daily':
-      return new Date(now.setMonth(now.getMonth() - 1)); // 1 month of daily data
+      return monthsAgo(1); // 1 month of daily data
     case 'weekly':
-      return new Date(now.setMonth(now.getMonth() - 3)); // 3 months of weekly data
-    case 'yearly':
-      return new Date(now.setFullYear(now.getFullYear() - 3)); // 3 years of yearly data
+      return monthsAgo(3); // 3 months of weekly data
     case 'monthly':
-      // Use only the current month as requested
-      return new Date(now.getFullYear(), now.getMonth(), 1);
+      return monthsAgo(12); // 12 months of monthly data
+    case 'yearly':
+      return yearsAgo(3); // 3 years of yearly data
     default:
-      return new Date(now.setFullYear(now.getFullYear() - 1));
+      return yearsAgo(1);
   }
 }
 
@@ -307,17 +349,23 @@ async function callMlService(transactionsOrSeries, period, horizon) {
   const fetch = require('node-fetch');
   const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 
-  // Normalize input to series of {date, value}
+  // Normalize input to series of {date, value} for ML API
   const series = transactionsOrSeries.map((t) => ({
-    date: t.date ? t.date : t.date || t.ds || t,
-    value: t.amount != null ? t.amount : t.value
+    date: t.date != null ? t.date : t.ds,
+    value: (t.amount != null ? t.amount : t.value) ?? 0
   }));
+
+  const timeoutMs = 2500;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   const res = await fetch(`${ML_URL}/forecast`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ series, period, horizon })
+    body: JSON.stringify({ series, period, horizon }),
+    ...(controller ? { signal: controller.signal } : {})
   });
+  if (timeout) clearTimeout(timeout);
   if (!res.ok) {
     throw new Error(`ML service error: ${res.status}`);
   }

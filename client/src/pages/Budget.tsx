@@ -51,6 +51,26 @@ const BudgetPage: React.FC = () => {
     period: 'monthly',
     notes: ''
   });
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
+
+  const calculateSpentAmount = (categoryId: string) => {
+    if (!transactions) return 0;
+    return transactions
+      .filter((t) => {
+        if (!t || !t.category || typeof t.category !== 'object') return false;
+        const tCategory = t.category as { _id: string };
+        return tCategory._id === categoryId && t.type === 'expense';
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  const totalBudget = budgets?.reduce((sum, b) => sum + b.amount, 0) || 0;
+  const totalSpent = budgets?.reduce((sum, b) => {
+    const catId = typeof b.category === 'string' ? b.category : (b.category as BudgetCategory)._id;
+    return sum + calculateSpentAmount(catId);
+  }, 0) || 0;
+  const totalRemaining = totalBudget - totalSpent;
 
   useEffect(() => {
     getBudgets();
@@ -66,23 +86,32 @@ const BudgetPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const categoryValue = isCustomCategory ? customCategory.trim() : formData.category;
+    if (!categoryValue) return;
+    const payload = { ...formData, category: categoryValue };
     if (isEditing) {
-      await updateBudget(isEditing, formData);
+      await updateBudget(isEditing, payload);
       setIsEditing(null);
     } else {
-      await addBudget(formData);
+      await addBudget(payload);
       setShowAddForm(false);
     }
     setFormData({ category: '', amount: 0, period: 'monthly', notes: '' });
+    setIsCustomCategory(false);
+    setCustomCategory('');
   };
 
   const handleEdit = (budget: Budget) => {
+    const catId = typeof budget.category === 'string' ? budget.category : budget.category._id;
+    const isCustom = !categories?.some((c) => c._id === catId);
     setFormData({
-      category: typeof budget.category === 'string' ? budget.category : budget.category._id,
+      category: isCustom ? '' : catId,
       amount: budget.amount,
       period: budget.period,
       notes: budget.notes || ''
     });
+    setIsCustomCategory(isCustom);
+    setCustomCategory(isCustom ? catId : '');
     setIsEditing(budget._id || null);
     setShowAddForm(true);
   };
@@ -92,17 +121,6 @@ const BudgetPage: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this budget?')) {
       await deleteBudget(id);
     }
-  };
-
-  const calculateSpentAmount = (categoryId: string) => {
-    if (!transactions) return 0;
-    return transactions
-      .filter(t => {
-        if (!t || !t.category || typeof t.category !== 'object') return false;
-        const tCategory = t.category as { _id: string };
-        return tCategory._id === categoryId && t.type === 'expense';
-      })
-      .reduce((sum, t) => sum + t.amount, 0);
   };
 
   const getCategoryName = (category: string | BudgetCategory) => {
@@ -130,14 +148,36 @@ const BudgetPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Budget Management</h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Budget Management</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Track how your planned budgets compare to real spending.
+          </p>
+        </div>
         <button
           onClick={() => setShowAddForm(true)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
         >
           Add Budget
         </button>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Budgeted</p>
+          <p className="mt-1 text-lg font-semibold">{formatCurrency(totalBudget, currency)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Spent</p>
+          <p className="mt-1 text-lg font-semibold text-rose-600">{formatCurrency(totalSpent, currency)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Remaining</p>
+          <p className={`mt-1 text-lg font-semibold ${totalRemaining >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {formatCurrency(totalRemaining, currency)}
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -153,32 +193,43 @@ const BudgetPage: React.FC = () => {
               <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                 Category
               </label>
-              <div className="mt-1 flex gap-2">
+              <div className="mt-1 space-y-2">
                 <select
                   id="categorySelect"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  value={isCustomCategory ? '__other__' : formData.category}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '__other__') {
+                      setIsCustomCategory(true);
+                      setFormData({ ...formData, category: '' });
+                    } else {
+                      setIsCustomCategory(false);
+                      setCustomCategory('');
+                      setFormData({ ...formData, category: v });
+                    }
+                  }}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 >
-                  <option value="">Select a category or type below</option>
-                  {categories && categories
-                    .filter(c => c && c.type === 'expense')
-                    .map((category) => (
-                      category && category._id ? (
-                        <option key={category._id} value={category._id}>
-                          {category.name || 'Unnamed Category'}
-                        </option>
-                      ) : null
-                    ))}
+                  <option value="">Select a category</option>
+                  {categories?.filter((c) => c && c.type === 'expense').map((category) =>
+                    category?._id ? (
+                      <option key={category._id} value={category._id}>
+                        {category.name || 'Unnamed Category'}
+                      </option>
+                    ) : null
+                  )}
+                  <option value="__other__">Other…</option>
                 </select>
-                <input
-                  type="text"
-                  id="customCategory"
-                  placeholder="Or type custom category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                />
+                {isCustomCategory && (
+                  <input
+                    type="text"
+                    id="customCategory"
+                    placeholder="Enter custom category"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  />
+                )}
               </div>
             </div>
 
@@ -235,6 +286,8 @@ const BudgetPage: React.FC = () => {
                   setShowAddForm(false);
                   setIsEditing(null);
                   setFormData({ category: '', amount: 0, period: 'monthly', notes: '' });
+                  setIsCustomCategory(false);
+                  setCustomCategory('');
                 }}
                 className="bg-white text-gray-700 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
               >

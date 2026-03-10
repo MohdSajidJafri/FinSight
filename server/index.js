@@ -9,6 +9,17 @@ const corsOptions = require('./config/cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+// Validate required env vars at startup
+const requiredEnvVars = ['JWT_SECRET', 'JWT_COOKIE_EXPIRE'];
+const missing = requiredEnvVars.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  console.error('[STARTUP ERROR] Missing required environment variables:', missing.join(', '));
+  console.error('Ensure server/.env exists with JWT_SECRET and JWT_COOKIE_EXPIRE set.');
+  process.exit(1);
+}
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const transactionRoutes = require('./routes/transactions');
@@ -25,7 +36,19 @@ const PORT = process.env.PORT || 5000;
 app.use(cors(corsOptions));
 app.use(helmet());
 app.use(express.json({ limit: '200kb' }));
-app.use(morgan('dev'));
+app.use(morgan(isDev ? 'dev' : 'combined'));
+if (isDev) {
+  app.use((req, res, next) => {
+    if (req.method === 'POST' || req.method === 'PUT') {
+      const body = { ...req.body };
+      if (body.password) body.password = '[REDACTED]';
+      if (body.currentPassword) body.currentPassword = '[REDACTED]';
+      if (body.newPassword) body.newPassword = '[REDACTED]';
+      console.log(`[REQ] ${req.method} ${req.originalUrl}`, Object.keys(body).length ? body : '');
+    }
+    next();
+  });
+}
 app.use(cookieParser());
 
 // Disable caching for API responses to avoid 304/empty bodies via proxies
@@ -47,10 +70,7 @@ app.use('/api', limiter);
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/finsight', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/finsight');
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
@@ -104,11 +124,12 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('[ERROR]', err.message);
+  console.error('[STACK]', err.stack);
   res.status(500).json({
     success: false,
     message: err.message || 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : err
+    ...(isDev && { error: err.message, stack: err.stack })
   });
 });
 
@@ -118,6 +139,10 @@ const startServer = async () => {
     await connectDB();
     const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      if (isDev) {
+        console.log(`API base: http://localhost:${PORT}/api`);
+        console.log('Ensure client .env has REACT_APP_API_URL=http://localhost:' + PORT + '/api');
+      }
     });
 
     // Handle server errors

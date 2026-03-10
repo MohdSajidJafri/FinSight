@@ -7,14 +7,10 @@ import {
   ChartPieIcon,
   CogIcon,
   ArrowTrendingUpIcon,
-  TagIcon,
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  UserCircleIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  UserIcon
+  UserCircleIcon
 } from '@heroicons/react/24/outline';
 
 const DashboardLayout: React.FC = () => {

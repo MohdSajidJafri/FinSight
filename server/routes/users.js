@@ -22,9 +22,6 @@ router.put(
   updateMe
 );
 
-module.exports = router;
-
-// Password change
 router.post(
   '/password',
   [
@@ -33,4 +30,6 @@ router.post(
   ],
   changePassword
 );
+
+module.exports = router;
 
