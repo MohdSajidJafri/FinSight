@@ -112,15 +112,28 @@ const readinessHandler = (req, res) => {
 app.get('/health/ready', readinessHandler);
 app.get('/readyz', readinessHandler);
 
-// 3. Comprehensive Health Check (includes status, uptime, database state)
-const healthHandler = (req, res) => {
-  const isDbConnected = mongoose.connection.readyState === 1;
+// 3. Comprehensive Health Check (includes status, uptime, database state, and live ping)
+const healthHandler = async (req, res) => {
+  let isDbConnected = mongoose.connection.readyState === 1;
+  let dbPingMs = null;
+
+  if (isDbConnected && mongoose.connection.db) {
+    try {
+      const start = Date.now();
+      await mongoose.connection.db.admin().ping();
+      dbPingMs = Date.now() - start;
+    } catch (e) {
+      isDbConnected = false;
+    }
+  }
+
   const dbStatus = DB_STATES[mongoose.connection.readyState] || 'unknown';
   const data = {
     status: isDbConnected ? 'healthy' : 'degraded',
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
     database: dbStatus,
+    dbLatencyMs: dbPingMs,
     environment: process.env.NODE_ENV || 'development',
     version: '1.0.0'
   };
