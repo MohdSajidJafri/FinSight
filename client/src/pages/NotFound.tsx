@@ -5,7 +5,7 @@ import BrandLogo from '../components/common/BrandLogo';
 export const NotFound: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center text-[#0A0A0A]">
-      <BrandLogo size="lg" showSubtitle className="mb-8" />
+      <BrandLogo size="lg" className="mb-8" />
       <div className="bg-white border border-[#E5E5E3] rounded-2xl p-8 sm:p-12 max-w-md w-full shadow-sm">
         <span className="text-5xl font-black text-[#0A0A0A]">404</span>
         <h2 className="text-xl font-bold text-[#0A0A0A] mt-3 mb-2">Page Not Found</h2>
