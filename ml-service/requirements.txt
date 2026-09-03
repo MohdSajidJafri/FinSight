@@ -1,8 +1,8 @@
-fastapi==0.111.0
-uvicorn==0.29.0
-pandas==2.2.2
-prophet==1.1.5
-pydantic==2.7.1
-numpy==1.26.4
-scipy==1.11.4
-pystan==3.7.0
+fastapi>=0.111.0,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+pandas>=2.0.0,<3.0.0
+pydantic>=2.7.0,<3.0.0
+numpy>=1.24.0,<2.0.0
+scipy>=1.11.0,<2.0.0
+# prophet is supported when C++ toolchains are present
+prophet>=1.1.5,<2.0.0; sys_platform != "win32" or platform_machine != "ARM64"

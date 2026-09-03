@@ -33,6 +33,16 @@ yarn-error.log*
 # Production build
 /client/build
 
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+
 # Misc
 .DS_Store
 *.pem 

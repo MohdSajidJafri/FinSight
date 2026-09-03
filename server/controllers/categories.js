@@ -113,6 +113,10 @@ exports.updateCategory = async (req, res) => {
       });
     }
 
+    // Prevent IDOR by disallowing modification of user or isDefault
+    delete req.body.user;
+    delete req.body.isDefault;
+
     category = await Category.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },

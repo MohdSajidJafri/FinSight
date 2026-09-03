@@ -226,6 +226,9 @@ exports.updateBudget = async (req, res) => {
       });
     }
 
+    // Prevent IDOR by disallowing modification of user ownership
+    delete req.body.user;
+
     // If category or period is being changed, check for existing budget
     if (req.body.category || req.body.period) {
       const existingBudget = await Budget.findOne({

@@ -1,34 +1,31 @@
-import React, { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import { BrandLogo } from '../common/BrandLogo';
 
-const AuthLayout: React.FC = () => {
-  const { isAuthenticated } = useAuthStore();
-  const navigate = useNavigate();
-
-  // Redirect to dashboard if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
-    }
-  }, [isAuthenticated, navigate]);
-
+export const AuthLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-3xl font-extrabold text-indigo-600">FinSight AI</h1>
-        <h2 className="mt-2 text-center text-sm font-medium text-gray-600">
-          Intelligent Personal Finance Dashboard
-        </h2>
-      </div>
+    <div className="min-h-screen bg-[#FFFFFF] flex flex-col justify-between p-6 sm:p-10 text-[#0A0A0A]">
+      {/* Top Header with Brand */}
+      <header className="flex items-center justify-between max-w-5xl mx-auto w-full">
+        <BrandLogo size="md" />
+        <span className="text-xs text-[#737373] hidden sm:inline">
+          Personal Financial Intelligence
+        </span>
+      </header>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      {/* Centered Auth Card Container */}
+      <main className="flex items-center justify-center my-8 w-full">
+        <div className="w-full max-w-md">
           <Outlet />
         </div>
-      </div>
+      </main>
+
+      {/* Minimal Footer */}
+      <footer className="text-center text-xs text-[#737373] max-w-5xl mx-auto w-full pt-4 border-t border-[#E5E5E3]">
+        <p>&copy; {new Date().getFullYear()} FinSight. All rights reserved.</p>
+      </footer>
     </div>
   );
 };
 
-export default AuthLayout; 
+export default AuthLayout;

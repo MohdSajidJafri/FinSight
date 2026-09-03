@@ -1,3 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
-@tailwind utilities; 
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFFFFF;
+    color: #0A0A0A;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Minimalist light scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFFFFF;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #E5E5E3;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D4D4D0;
+  }
+}
+
+/* Custom utility for financial tabular numerals */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Minimalist Editorial Card */
+.fin-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E5E3;
+  border-radius: 0.875rem;
+}
+
+.fin-card-hover {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fin-card-hover:hover {
+  border-color: #D4D4D0;
+  background-color: #FAFAFA;
+}

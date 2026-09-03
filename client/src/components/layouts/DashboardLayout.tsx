@@ -1,201 +1,165 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
+import { BrandLogo } from '../common/BrandLogo';
 import {
-  HomeIcon,
-  CreditCardIcon,
+  Squares2X2Icon,
+  ReceiptPercentIcon,
   ChartPieIcon,
-  CogIcon,
   ArrowTrendingUpIcon,
-  ArrowLeftOnRectangleIcon,
+  Cog6ToothIcon,
+  ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  UserCircleIcon
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
-const DashboardLayout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuthStore();
-  const location = useLocation();
-  const navigate = useNavigate();
+const navItems = [
+  { name: 'Dashboard', path: '/', icon: Squares2X2Icon },
+  { name: 'Transactions', path: '/transactions', icon: ReceiptPercentIcon },
+  { name: 'Budget', path: '/budget', icon: ChartPieIcon },
+  { name: 'Predictions', path: '/predictions', icon: ArrowTrendingUpIcon },
+  { name: 'Settings', path: '/settings', icon: Cog6ToothIcon },
+];
 
-  // Close sidebar on route change on mobile
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
+export const DashboardLayout: React.FC = () => {
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Transactions', href: '/transactions', icon: CreditCardIcon },
-    { name: 'Budget', href: '/budget', icon: ChartPieIcon },
-    { name: 'Predictions', href: '/predictions', icon: ArrowTrendingUpIcon },
-    { name: 'Settings', href: '/settings', icon: CogIcon }
-  ];
+  const initials = user?.name
+    ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'DG';
+
+  const sidebarContent = (
+    <div className="h-full flex flex-col justify-between p-5 select-none">
+      <div>
+        {/* Brand Header */}
+        <div className="px-2 py-3 mb-6">
+          <BrandLogo size="md" />
+        </div>
+
+        {/* Clean Navigation Links */}
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.name}
+                to={item.path}
+                end={item.path === '/'}
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[#F4F4F2] text-[#0A0A0A] font-semibold'
+                      : 'text-[#737373] hover:text-[#0A0A0A] hover:bg-[#F9F9F8]'
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      className={`w-5 h-5 stroke-[1.75] ${
+                        isActive ? 'text-[#0A0A0A]' : 'text-[#737373]'
+                      }`}
+                    />
+                    <span>{item.name}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* User Area at Bottom */}
+      <div className="pt-4 border-t border-[#E5E5E3] space-y-3">
+        <div className="flex items-center justify-between px-2 py-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-[#F4F4F2] border border-[#E5E5E3] flex items-center justify-center text-xs font-bold text-[#0A0A0A] flex-shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[#0A0A0A] truncate">
+                {user?.name || 'Demo Guest'}
+              </p>
+              <p className="text-[11px] text-[#737373] truncate">
+                {user?.email || 'guest@finsight.local'}
+              </p>
+            </div>
+          </div>
+          <ChevronDownIcon className="w-3.5 h-3.5 text-[#737373] flex-shrink-0" />
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-[#737373] hover:text-[#DC2626] hover:bg-[#F9F9F8] rounded-md transition-colors"
+        >
+          <ArrowRightOnRectangleIcon className="w-4 h-4 stroke-[1.75]" />
+          <span>Log out</span>
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-40 flex md:hidden ${sidebarOpen ? 'visible' : 'invisible'}`}>
-        {/* Backdrop */}
-        <div 
-          className={`fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity duration-300 ease-in-out ${sidebarOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-        
-        {/* Sidebar */}
-        <div className={`relative flex w-full max-w-xs flex-1 flex-col bg-white pt-5 pb-4 transition duration-300 ease-in-out transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          <div className="absolute top-0 right-0 -mr-12 pt-2">
-            <button
-              type="button"
-              className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <span className="sr-only">Close sidebar</span>
-              <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
-            </button>
-          </div>
-          
-          <div className="flex flex-shrink-0 items-center px-4">
-            <h1 className="text-2xl font-bold text-indigo-600">FinSight AI</h1>
-          </div>
-          
-          <div className="mt-5 h-0 flex-1 overflow-y-auto">
-            <nav className="space-y-1 px-2">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`group flex items-center px-2 py-2 text-base font-medium rounded-md ${
-                    location.pathname === item.href
-                      ? 'bg-indigo-100 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon
-                    className={`mr-4 h-6 w-6 flex-shrink-0 ${
-                      location.pathname === item.href
-                        ? 'text-indigo-600'
-                        : 'text-gray-400 group-hover:text-gray-500'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-              
-              <button
-                onClick={handleLogout}
-                className="group flex w-full items-center px-2 py-2 text-base font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              >
-                <ArrowLeftOnRectangleIcon
-                  className="mr-4 h-6 w-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
-                  aria-hidden="true"
-                />
-                Logout
-              </button>
-            </nav>
-          </div>
-          
-          <div className="flex flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="flex items-center">
-              <div>
-                <UserCircleIcon className="inline-block h-9 w-9 rounded-full text-gray-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-base font-medium text-gray-700">{user?.name}</p>
-                <p className="text-sm font-medium text-gray-500">{user?.email}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Static sidebar for desktop */}
-      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col">
-        <div className="flex min-h-0 flex-1 flex-col border-r border-gray-200 bg-white">
-          <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
-            <div className="flex flex-shrink-0 items-center px-4">
-              <h1 className="text-2xl font-bold text-indigo-600">FinSight AI</h1>
-            </div>
-            
-            <nav className="mt-5 flex-1 space-y-1 bg-white px-2">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                    location.pathname === item.href
-                      ? 'bg-indigo-100 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon
-                    className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                      location.pathname === item.href
-                        ? 'text-indigo-600'
-                        : 'text-gray-400 group-hover:text-gray-500'
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-              
-              <button
-                onClick={handleLogout}
-                className="group flex w-full items-center px-2 py-2 text-sm font-medium rounded-md text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              >
-                <ArrowLeftOnRectangleIcon
-                  className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 group-hover:text-gray-500"
-                  aria-hidden="true"
-                />
-                Logout
-              </button>
-            </nav>
-          </div>
-          
-          <div className="flex flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="flex items-center">
-              <div>
-                <UserCircleIcon className="inline-block h-8 w-8 rounded-full text-gray-400" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">{user?.name}</p>
-                <p className="text-xs font-medium text-gray-500">{user?.email}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Main content */}
-      <div className="flex flex-1 flex-col md:pl-64">
-        <div className="sticky top-0 z-10 bg-white pl-1 pt-1 sm:pl-3 sm:pt-3 md:hidden">
+    <div className="min-h-screen bg-[#FFFFFF] flex text-[#0A0A0A]">
+      {/* Desktop Persistent Left Sidebar */}
+      <aside className="hidden lg:block w-64 flex-shrink-0 bg-[#FFFFFF] border-r border-[#E5E5E3] h-screen sticky top-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#FFFFFF] border-r border-[#E5E5E3] transform transition-transform duration-200 ease-out lg:hidden ${
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="absolute top-4 right-4 lg:hidden">
           <button
-            type="button"
-            className="-ml-0.5 -mt-0.5 inline-flex h-12 w-12 items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-            onClick={() => setSidebarOpen(true)}
+            onClick={() => setMobileMenuOpen(false)}
+            className="p-1 rounded-md text-[#737373] hover:text-[#0A0A0A] hover:bg-[#F4F4F2]"
           >
-            <span className="sr-only">Open sidebar</span>
-            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
-        
-        <main className="flex-1">
-          <div className="py-6">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-              <Outlet />
-            </div>
-          </div>
+        {sidebarContent}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#FFFFFF]">
+        {/* Mobile Top Header */}
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-[#FFFFFF] border-b border-[#E5E5E3] sticky top-0 z-30">
+          <BrandLogo size="sm" />
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-lg text-[#0A0A0A] hover:bg-[#F4F4F2]"
+          >
+            <Bars3Icon className="w-5 h-5" />
+          </button>
+        </header>
+
+        {/* Dynamic Page Outlet */}
+        <main className="flex-1 p-5 sm:p-8 lg:p-10 max-w-7xl mx-auto w-full">
+          <Outlet />
         </main>
       </div>
     </div>
   );
 };
 
-export default DashboardLayout; 
+export default DashboardLayout;

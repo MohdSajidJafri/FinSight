@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, email, password } = req.body;
+    const { name, email, password, monthlyIncome, savingsGoal, currency } = req.body;
 
     // Check if user already exists
     let user = await User.findOne({ email });
@@ -38,7 +38,10 @@ exports.register = async (req, res) => {
     user = await User.create({
       name,
       email,
-      password
+      password,
+      ...(monthlyIncome !== undefined && { monthlyIncome: Number(monthlyIncome) }),
+      ...(savingsGoal !== undefined && { savingsGoal: Number(savingsGoal) }),
+      ...(currency && { currency })
     });
 
     // Seed default categories for new user
@@ -154,15 +157,81 @@ exports.updateMe = async (req, res) => {
 // @route   GET /api/auth/logout
 // @access  Private
 exports.logout = (req, res) => {
-  res.cookie('token', 'none', {
+  const options = {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true
-  });
+  };
+
+  if (process.env.NODE_ENV === 'production') {
+    options.secure = true;
+    options.sameSite = 'none';
+  }
+
+  res.cookie('token', 'none', options);
 
   res.status(200).json({
     success: true,
     data: {}
   });
+};
+
+// @desc    Guest / Demo login to bypass manual authentication
+// @route   POST /api/auth/guest
+// @access  Public
+exports.guestLogin = async (req, res) => {
+  try {
+    const guestEmail = 'guest@finsight.local';
+    let user = await User.findOne({ email: guestEmail });
+
+    if (!user) {
+      user = await User.create({
+        name: 'Demo Guest',
+        email: guestEmail,
+        password: 'GuestDemoPassword123!',
+        monthlyIncome: 5500,
+        savingsGoal: 1200,
+        currency: 'USD'
+      });
+      await seedDefaultCategories(user._id);
+
+      // Seed initial transactions and budgets for rich initial view
+      const Category = require('../models/Category');
+      const Transaction = require('../models/Transaction');
+      const Budget = require('../models/Budget');
+
+      const cats = await Category.find({ user: user._id });
+      const foodCat = cats.find(c => c.name.toLowerCase().includes('food') || c.name.toLowerCase().includes('dining')) || cats[0];
+      const rentCat = cats.find(c => c.name.toLowerCase().includes('rent') || c.name.toLowerCase().includes('housing')) || cats[1];
+      const entertainmentCat = cats.find(c => c.name.toLowerCase().includes('entertainment')) || cats[2];
+
+      const now = new Date();
+      if (foodCat) {
+        await Transaction.create([
+          { user: user._id, description: 'Grocery Store Run', amount: 95.40, type: 'expense', category: foodCat._id, date: new Date(now.getFullYear(), now.getMonth(), 5) },
+          { user: user._id, description: 'Coffee & Breakfast', amount: 14.50, type: 'expense', category: foodCat._id, date: new Date(now.getFullYear(), now.getMonth(), 8) }
+        ]);
+        await Budget.create({ user: user._id, category: foodCat._id, amount: 450, period: 'monthly' });
+      }
+      if (rentCat) {
+        await Transaction.create({ user: user._id, description: 'Monthly Apartment Rent', amount: 1400, type: 'expense', category: rentCat._id, date: new Date(now.getFullYear(), now.getMonth(), 1) });
+        await Budget.create({ user: user._id, category: rentCat._id, amount: 1500, period: 'monthly' });
+      }
+      if (entertainmentCat) {
+        await Transaction.create({ user: user._id, description: 'Streaming Services', amount: 25.00, type: 'expense', category: entertainmentCat._id, date: new Date(now.getFullYear(), now.getMonth(), 12) });
+        await Budget.create({ user: user._id, category: entertainmentCat._id, amount: 100, period: 'monthly' });
+      }
+      // Add a salary income transaction
+      await Transaction.create({ user: user._id, description: 'Bi-weekly Direct Deposit', amount: 2750, type: 'income', category: 'Salary', date: new Date(now.getFullYear(), now.getMonth(), 1) });
+    }
+
+    sendTokenResponse(user, 200, res);
+  } catch (err) {
+    logError('guestLogin', err);
+    res.status(500).json({
+      success: false,
+      message: 'Unable to start guest session'
+    });
+  }
 };
 
 // Get token from model, create cookie and send response
@@ -185,6 +254,14 @@ const sendTokenResponse = (user, statusCode, res) => {
     .cookie('token', token, options)
     .json({
       success: true,
-      token
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        monthlyIncome: user.monthlyIncome || 0,
+        savingsGoal: user.savingsGoal || 0,
+        currency: user.currency || 'USD'
+      }
     });
 }; 

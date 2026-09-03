@@ -163,7 +163,7 @@ exports.getBudgetRecommendations = async (req, res) => {
     
     // Get recent transactions
     const now = new Date();
-    const threeMonthsAgo = new Date(now.setMonth(now.getMonth() - 3));
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
     
     const transactions = await Transaction.find({
       user: req.user.id,
@@ -173,7 +173,7 @@ exports.getBudgetRecommendations = async (req, res) => {
     
     // Get user's monthly income
     const user = await User.findById(req.user.id);
-    const monthlyIncome = user.monthlyIncome || 0;
+    const monthlyIncome = user?.monthlyIncome || 0;
     
     // Calculate average monthly expenses by category (from actual transactions)
     const categoryExpenses = {};
@@ -181,8 +181,10 @@ exports.getBudgetRecommendations = async (req, res) => {
       const categoryId = category._id.toString();
       const categoryTransactions = transactions.filter((t) => {
         if (!t || !t.category) return false;
-        // Skip custom string categories – they don't map to Category docs
-        if (typeof t.category === 'string') return false;
+
+        if (typeof t.category === 'string') {
+          return t.category === categoryId || t.category.toLowerCase() === category.name.toLowerCase();
+        }
 
         const txCategoryId = t.category._id
           ? t.category._id.toString()
@@ -196,8 +198,11 @@ exports.getBudgetRecommendations = async (req, res) => {
         return;
       }
 
-      const totalAmount = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
-      const monthlyAvg = totalAmount / 3; // 3 months of data
+      const totalAmount = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const oldestDate = Math.min(...categoryTransactions.map(t => new Date(t.date || Date.now()).getTime()));
+      const daysSpan = Math.max(1, (now.getTime() - oldestDate) / (24 * 60 * 60 * 1000));
+      const monthsSpan = Math.max(1, Math.min(3, daysSpan / 30));
+      const monthlyAvg = Math.round((totalAmount / monthsSpan) * 100) / 100;
       
       categoryExpenses[category._id] = {
         category: {

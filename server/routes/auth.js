@@ -1,9 +1,12 @@
 const express = require('express');
 const { check } = require('express-validator');
-const { register, login, getMe, updateMe, logout } = require('../controllers/auth');
+const { register, login, guestLogin, getMe, updateMe, logout } = require('../controllers/auth');
 const { protect } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Guest / Demo login route
+router.post('/guest', guestLogin);
 
 // Register route with validation
 router.post(
@@ -44,6 +47,6 @@ router.put(
 );
 
 // Logout route
-router.get('/logout', protect, logout);
+router.get('/logout', logout);
 
 module.exports = router; 

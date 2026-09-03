@@ -233,6 +233,9 @@ exports.updateTransaction = async (req, res) => {
       });
     }
 
+    // Prevent IDOR by disallowing modification of user ownership
+    delete req.body.user;
+
     // If category is a real Category ID, cast to ObjectId for consistent storage
     if (typeof req.body.category === 'string' && mongoose.Types.ObjectId.isValid(req.body.category)) {
       const existingCategory = await Category.findOne({ _id: req.body.category, user: req.user.id }).select('_id');
@@ -330,11 +333,13 @@ exports.getTransactionStats = async (req, res) => {
       : new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     // Get total income and expenses
+    const userObjectId = new mongoose.Types.ObjectId(req.user.id || req.user._id);
+
     const [incomeStats, expenseStats, categoryStats] = await Promise.all([
       Transaction.aggregate([
         {
           $match: {
-            user: req.user._id,
+            user: userObjectId,
             type: 'income',
             date: { $gte: startDate, $lte: endDate }
           }
@@ -350,7 +355,7 @@ exports.getTransactionStats = async (req, res) => {
       Transaction.aggregate([
         {
           $match: {
-            user: req.user._id,
+            user: userObjectId,
             type: 'expense',
             date: { $gte: startDate, $lte: endDate }
           }
@@ -366,7 +371,7 @@ exports.getTransactionStats = async (req, res) => {
       Transaction.aggregate([
         {
           $match: {
-            user: req.user._id,
+            user: userObjectId,
             date: { $gte: startDate, $lte: endDate }
           }
         },
@@ -389,16 +394,19 @@ exports.getTransactionStats = async (req, res) => {
           }
         },
         {
-          $unwind: '$categoryInfo'
+          $unwind: {
+            path: '$categoryInfo',
+            preserveNullAndEmptyArrays: true
+          }
         },
         {
           $project: {
             _id: 0,
             category: '$_id.category',
             type: '$_id.type',
-            categoryName: '$categoryInfo.name',
-            categoryIcon: '$categoryInfo.icon',
-            categoryColor: '$categoryInfo.color',
+            categoryName: { $ifNull: ['$categoryInfo.name', '$_id.category'] },
+            categoryIcon: { $ifNull: ['$categoryInfo.icon', 'tag'] },
+            categoryColor: { $ifNull: ['$categoryInfo.color', '#6B7280'] },
             total: 1,
             count: 1
           }

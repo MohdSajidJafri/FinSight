@@ -9,6 +9,7 @@ interface User {
   currency: string;
   monthlyIncome: number;
   savingsGoal: number;
+  createdAt?: string;
 }
 
 interface AuthState {
@@ -19,6 +20,7 @@ interface AuthState {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  guestLogin: () => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
@@ -107,6 +109,32 @@ export const useAuthStore = create<AuthState>()(
           set({
             isLoading: false,
             error: err.response?.data?.message || 'Registration failed. Please try again.'
+          });
+          throw err;
+        }
+      },
+
+      // Instant Guest / Demo login
+      guestLogin: async () => {
+        try {
+          set({ isLoading: true, error: null });
+          const response = await api.post('/auth/guest');
+          if (response.data.success && response.data.token) {
+            localStorage.setItem('auth-token', response.data.token);
+            set({
+              token: response.data.token,
+              isAuthenticated: true,
+              isLoading: false
+            });
+            await get().loadUser();
+          } else {
+            throw new Error('Guest login failed');
+          }
+        } catch (err: any) {
+          console.error('Guest login error:', err.response?.data || err.message);
+          set({
+            isLoading: false,
+            error: err.response?.data?.message || 'Unable to start demo session.'
           });
           throw err;
         }
