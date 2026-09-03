@@ -183,10 +183,21 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Database connection logic with auto-retry
+// Database connection logic with continuous auto-retry
+const dns = require('dns');
+
 const connectDB = async (retryCount = 0) => {
-  const maxRetries = 5;
   const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/finsight';
+
+  // Use reliable public DNS resolvers if using SRV connection on cloud hosting
+  if (uri.startsWith('mongodb+srv://') && retryCount === 0) {
+    try {
+      dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+    } catch (e) {
+      // Ignore if environment prohibits custom DNS
+    }
+  }
+
   try {
     const conn = await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 5000
@@ -194,13 +205,9 @@ const connectDB = async (retryCount = 0) => {
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error(`MongoDB connection attempt ${retryCount + 1} failed:`, error.message);
-    if (retryCount < maxRetries) {
-      const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
-      console.log(`Retrying MongoDB connection in ${delay}ms...`);
-      setTimeout(() => connectDB(retryCount + 1), delay);
-    } else {
-      console.error('CRITICAL: Unable to establish MongoDB connection after max attempts.');
-    }
+    const delay = Math.min(1000 * Math.pow(2, Math.min(retryCount, 4)), 15000);
+    console.log(`Retrying MongoDB connection in ${delay}ms...`);
+    setTimeout(() => connectDB(retryCount + 1), delay);
   }
 };
 
