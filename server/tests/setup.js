@@ -1,3 +1,12 @@
+// Polyfill SlowBuffer for legacy dependencies on modern Node runtimes
+const _buffer = require('buffer');
+if (typeof global.SlowBuffer === 'undefined') {
+  global.SlowBuffer = _buffer.SlowBuffer || _buffer.Buffer;
+}
+if (global.SlowBuffer && !global.SlowBuffer.prototype) {
+  global.SlowBuffer.prototype = _buffer.Buffer.prototype;
+}
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 
